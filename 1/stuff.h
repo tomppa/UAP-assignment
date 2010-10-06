@@ -41,7 +41,10 @@
 #define LOGPATH "./logs/"
 #endif
 
-int say_hello (char *login, char *home_path)
+#ifndef GREET
+#define GREET
+// Simple greeting function.
+int greet (char *login, char *home_path)
 {
   regex_t re;
   char* pattern = "^.*2$";
@@ -71,7 +74,10 @@ int say_hello (char *login, char *home_path)
 
   return 0;
 }
+#endif
 
+// Checking whether time2 is later than time1 and if so
+// updating time2 to equal time1
 void update(char *time1, char *time2)
 {
   struct tm tm1, tm2;
@@ -87,6 +93,7 @@ void check_platform(char *shell, char *os, char *release)
 {
 }
 
+// Writing a timestamp and user record into access log.
 int log_access(char *login) {
   int fd, n;
   char text[40];
@@ -119,7 +126,8 @@ int log_access(char *login) {
   return 0;
 }
 
-int last_accessed()
+// Low level way of reading the access log.
+int ll_access()
 {
   int fd, n, i, j = 0;
   char buf[BUF_SIZE], *last, *cur, tmp[LINE_LENGTH], *logname;
@@ -168,6 +176,7 @@ int last_accessed()
   return 0;
 }
 
+// High level way of reading the access log.
 int hl_access ()
 {
   FILE *pFile;
@@ -201,6 +210,7 @@ int hl_access ()
   return 0;
 }
 
+// Checking the combined size of all log files.
 int cls ()
 {
   DIR *dir;

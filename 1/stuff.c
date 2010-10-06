@@ -1,35 +1,36 @@
 // just general stuff building up for the assignment
 
 #include "stuff.h"
-
-#ifndef CFG_FILENAME
-#define CFG_FILENAME "stuff.cfg"
-#endif
+#include "config.h"
 
 int main (int argc, char **argv)
 {
-  struct passwd *pw;
-  struct utsname *os = NULL;
-  int found = uname(os);
+  struct passwd *pw = getpwuid(geteuid());
+  struct utsname os;
+  int found = uname(&os);
+  cfg cf;
 
-  pw = getpwuid(geteuid());
-  if (found > 0) {
-    printf("os: %s, node: %s, release: %s, version: %s, machine: %s\n",
-           os->sysname, os->nodename, os->release, os->version,
-           os->machine);
-  }
+  if (found == 0) 
+     check_platform(pw->pw_shell, os.sysname, os.release);
+ 
   else
-    printf("Couldn't get OS details.\n");
+    printf("Couldn't get OS details: %s.\n", strerror(errno));
 
-  //last_accessed();
+  //ll_access();
   //hl_access();
   log_access(pw->pw_name);
   cls();
 
-  //if (say_hello(pw->pw_name, pw->pw_dir) != 0)
-  // printf("Problems getting all the info for a proper greeting.\n");
+  process_cfg(&cf);
 
-  check_platform(pw->pw_shell, os->sysname, os->release);
-  
+  if (cf.greet == 1) {
+    if (greet(pw->pw_name, pw->pw_dir) < 0)
+      printf("Problems getting all the info for a proper greeting.\n");
+  }
+
+  if (strlen(cf.uopts) > (size_t) 0)
+    printf("Following options in configuration were unknown: %s.\n",
+           cf.uopts);
+
   return 0;
 }
