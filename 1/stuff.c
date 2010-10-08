@@ -60,7 +60,7 @@ void update(char *time1, char *time2)
     time1 = strdup(time2);
 }
 
-void check_platform(char *shell, char *os, char *release)
+void chk_pf(char *shell, char *os, char *release)
 {
 }
 
@@ -100,8 +100,8 @@ int log_access(char *login) {
   return 0;
 }
 
-// Low level way of reading the access log.
-int ll_access()
+// Low level way of checking last access from current user.
+int ll_cla()
 {
   int fd, n, i = 0, j = 0;
   char buf[_BUF_SIZE_], *last, *cur, tmp[_LINE_LENGTH_], *logname;
@@ -140,19 +140,18 @@ int ll_access()
         update(last, cur);
     }
 
-    free(cur);
     }
   }
 
+  free(cur);
   printf("You last accessed this program: %s\n", last);
-
   free(last);
 
   return 0;
 }
 
-// High level way of reading the access log.
-int hl_access ()
+// High level way of checking last access from current user.
+int hl_cla ()
 {
   FILE *pFile;
   char line[_LINE_LENGTH_], *cur, *last, *tmp;
@@ -182,9 +181,9 @@ int hl_access ()
     }
 
     fclose(pFile);
-    free(last);
   }
 
+  free(last);
   return 0;
 }
 

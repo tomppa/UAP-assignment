@@ -10,13 +10,21 @@
 #define _CFG_LINE_LEN_ 80
 #endif
 
-typedef struct {
+struct cfg
+{
+  int print;
   int greet;
+  int log_access;
+  int cls;
+  int ll_cla;
+  int hl_cla;
+  int os_dtls;
   char uopts[100];
-} cfg;
+};
 
-extern cfg cf;
-extern int process_cfg(cfg*);
+extern struct cfg cf;
+extern int process_cfg(struct cfg*);
+extern void prt_opt(struct cfg*);
 
 #endif /* _CFG_HEADER_ */
 

@@ -6,28 +6,24 @@ CFLAGS +=	-D_GNU_SOURCE
 SUFFIXES = .c .o
 SOURCES = $(wildcard *.c)
 OBJECTS = $(SOURCES:.c=.o)
-LIBS = $(wildcard lib*.a)
 DIFFS = $(wildcard *.diff)
 PROJECT = main
 
-.PHONY: all cleanall cleanobj cleandiff cleanlib
+.PHONY: all cleanall cleanobj cleandiff
 
 all: $(PROJECT)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-$PROJECT: $(LIBS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@
-
-libstuff.a: config.o stuff.o
-	ar rvs libstuff.a $?
+$(PROJECT): $(OBJECTS)
+	$(CC) $(CFLAGS) $(OBJECTS) -o $@
 
 main.o: main.c stuff.o config.o
 config.o: config.c config.h
 stuff.o: stuff.c stuff.h
 
-cleanall: cleanobj cleandiff cleanlib
+cleanall: cleanobj cleandiff
 	rm -f $(PROGS)
 
 cleanobj:
@@ -35,7 +31,4 @@ cleanobj:
 
 cleandiff:
 	rm -f $(DIFFS)
-
-cleanlib:
-	rm -f $(LIBS)
 
