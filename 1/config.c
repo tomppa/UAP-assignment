@@ -24,7 +24,10 @@ int process_cfg (struct cfg *cf)
 
   while (i < 100) {
     tmp1 = fgets(line, _CFG_LINE_LEN_, f);
-    
+
+    if (feof(f))
+      break;
+
     if (tmp1[0] == '#')
       pch = NULL;
     
@@ -82,19 +85,10 @@ int process_cfg (struct cfg *cf)
       }
     }
 
-    printf("Round #%d, values are: \n", i);
-    prt_opt(cf);
-   
-    if (ferror(f))
-      perror("Error! ");
-
-    if (feof(f))
-      break;
-
     i++;
   }
 
-  printf("Configuration file processsed and options saved.!");
+  printf("Configuration file processsed and options saved.\n");
 
   res = fclose(f);
 
@@ -112,10 +106,11 @@ int process_cfg (struct cfg *cf)
 
 void prt_opt(struct cfg *cf)
 {
+/*
   printf("{ %d, %d, %d, %d, %d, %d, %d, '%s' }\n", cf->print, cf->greet,
          cf->log_access, cf->ll_cla, cf->hl_cla, cf->cls, cf->os_dtls,
          cf->uopts);
-/*
+*/
   printf("Printing options...\n");
   printf("Show greeting? %s\n", cf->greet ? "True." : "False.");
   printf("Log access? %s\n", cf->log_access ? "True." : "False.");
@@ -125,5 +120,4 @@ void prt_opt(struct cfg *cf)
          cf->hl_cla ? "True." : "False.");
   printf("Check log sizes? %s\n", cf->cls ? "True." : "False.");
   printf("Get OS details? %s\n", cf->os_dtls ? "True." : "False.");
-*/
 }
