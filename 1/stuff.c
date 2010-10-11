@@ -38,26 +38,32 @@ int greet (char *login, char *home_path)
     return 1;
   }
 
-//  printf("Details of your home directory (%s) are as follows.\n",
-//         home_path);
-//  printf("Last accessed:  %s", ctime(&st.st_atime));
-//  printf("Last modified:  %s", ctime(&st.st_mtime));
-//  printf("Last changed:   %s", ctime(&st.st_ctime));
-
   return 0;
 }
 
 // Checking whether time2 is later than time1 and if so
 // updating time2 to equal time1
-void update(char *time1, char *time2)
+int update(char *time1, char *time2)
 {
   struct tm tm1, tm2;
+  char *tmp;
 
-  strftime(time1, sizeof(time1), _TIME_PTRN_, &tm1);
-  strftime(time2, sizeof(time2), _TIME_PTRN_, &tm2);
+  tmp = (char*) malloc (sizeof(time1) * sizeof(char));
+  bzero(tmp, sizeof(time1));
+  tmp = strcpy(tmp, time1);
 
-  if (difftime(mktime(&tm1), mktime(&tm2)))
-    time1 = strdup(time2);
+  strftime(tmp, sizeof(tmp), _TIME_PTRN_, &tm1);
+  
+  tmp = strcpy(tmp, time2);
+  strftime(tmp, sizeof(tmp), _TIME_PTRN_, &tm2);
+
+  if (difftime(mktime(&tm1), mktime(&tm2))) {
+    time1 = strcpy(time1, time2);
+    return 1;
+  }
+
+  else
+    return 0;
 }
 
 void chk_pf(char *shell, char *os, char *release)
@@ -104,11 +110,17 @@ int log_access(char *login) {
 int ll_cla()
 {
   int fd, n, i = 0, j = 0;
-  char buf[_BUF_SIZE_], *last, *cur, tmp[_LINE_LENGTH_], *logname;
+  char buf[_BUF_SIZE_], *last, *cur, *line, *logname, *loc;
+  char *tmp;
   regex_t re;
 
-  last = (char*) malloc (_LINE_LENGTH_ * sizeof(char));
-  cur  = (char*) malloc (_LINE_LENGTH_ * sizeof(char));
+  last = (char*) malloc (_TIME_LEN_ * sizeof(char));
+  cur  = (char*) malloc (_TIME_LEN_ * sizeof(char));
+  line = (char*) malloc (_LINE_LEN_ * sizeof(char));
+  tmp = (char*) malloc (sizeof(char));
+  
+  bzero(cur, _TIME_LEN_);
+  bzero(last, _TIME_LEN_);
  
   if ((fd = open(_ACCESS_LOG_, O_RDONLY)) == -1) {
     perror(_ACCESS_LOG_);
@@ -118,33 +130,40 @@ int ll_cla()
   logname = getenv("LOGNAME");
 
   while ((n = read(fd, buf, _BUF_SIZE_)) > 0) {
-    while (j < n-1 && i < 700) {
-    for (i = j; i < j+_LINE_LENGTH_; i++) {
-      tmp[i-j] = buf[i];
+    while (i < n) {
+      for (i = j; i < j+_LINE_LEN_; i++) {
+        line[i-j] = buf[i];
 
-      if (buf[i] == '\n') {
-        j = i+1;
-        break;
+        if (buf[i] == '\n') {
+          j = i+1;
+          break;
+        }
       }
-    }
 
-    if (regcomp(&re, logname, REG_EXTENDED|REG_NOSUB) == 0 &&
-        regexec(&re, logname, (size_t) 0, NULL, 0) == 0) {
-      cur = strndup(tmp, (size_t) 19);
+      if (regcomp(&re, logname, REG_EXTENDED|REG_NOSUB) == 0 &&
+          regexec(&re, line, (size_t) 0, NULL, 0) == 0) {
+        cur = strncpy(cur, line, 19);
 
-      printf("cur: %s & last: %s\n", cur, last);
-
-      if (last == NULL)
-        last = cur;
-      else
-        update(last, cur);
-    }
-
+        if (update(last, cur)) {
+          free(tmp);
+          tmp = (char*) malloc (_LINE_LEN_ * sizeof(char));
+          tmp = strcpy(tmp, line);
+        }
+      }
     }
   }
 
+  char *start = strchr(tmp, '\t');
+  char *stop = strchr(start+1, '\t');
+  int host_len = stop-(start+1);
+  
+  loc = (char*) malloc (host_len * sizeof(char));
+  loc = strncpy(loc, start+1, host_len);
+
+  printf("You last accessed this program %s on %s.\n", last, loc);
+  free(tmp);
+  free(loc);
   free(cur);
-  printf("You last accessed this program: %s\n", last);
   free(last);
 
   return 0;
@@ -154,10 +173,10 @@ int ll_cla()
 int hl_cla ()
 {
   FILE *pFile;
-  char line[_LINE_LENGTH_], *cur, *last, *tmp;
+  char line[_LINE_LEN_], *cur, *last, *tmp;
   int i = 0;
 
-  last = (char*) malloc (_LINE_LENGTH_ * sizeof(char));
+  last = (char*) malloc (_LINE_LEN_ * sizeof(char));
 
   pFile = fopen(_ACCESS_LOG_, "r");
   if (pFile == NULL)
@@ -166,7 +185,7 @@ int hl_cla ()
   else {
     while (i < 20)
     {
-      tmp = fgets(line, _LINE_LENGTH_, pFile);
+      tmp = fgets(line, _LINE_LEN_, pFile);
       cur = strndup(line, (size_t) 19);
       printf("cur: %s, last: %s\n", cur, last);
       

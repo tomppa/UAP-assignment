@@ -1,6 +1,6 @@
 CC =		gcc
-CFLAGS = 	-O2 -g -Wall -pedantic -pg -std=c99
-LDFLAGS =	-lstuff -L.
+CFLAGS = 	-O0 -g -Wall -pedantic -pg -std=c99
+LDFLAGS =	-lpthread
 CFLAGS +=	-D_GNU_SOURCE
 
 SUFFIXES = .c .o
@@ -17,7 +17,7 @@ all: $(PROJECT)
 	$(CC) $(CFLAGS) -c $<
 
 $(PROJECT): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@
+	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
 
 main.o: main.c stuff.o config.o
 config.o: config.c config.h
