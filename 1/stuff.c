@@ -46,16 +46,9 @@ int greet (char *login, char *home_path)
 int update(char *time1, char *time2)
 {
   struct tm tm1, tm2;
-  char *tmp;
 
-  tmp = (char*) malloc (sizeof(time1) * sizeof(char));
-  bzero(tmp, sizeof(time1));
-  tmp = strcpy(tmp, time1);
-
-  strftime(tmp, sizeof(tmp), _TIME_PTRN_, &tm1);
-  
-  tmp = strcpy(tmp, time2);
-  strftime(tmp, sizeof(tmp), _TIME_PTRN_, &tm2);
+  strptime(time1, _TIME_PTRN_, &tm1);
+  strptime(time2, _TIME_PTRN_, &tm2);
 
   if (difftime(mktime(&tm1), mktime(&tm2))) {
     time1 = strcpy(time1, time2);
@@ -114,13 +107,14 @@ int ll_cla()
   char *tmp;
   regex_t re;
 
-  last = (char*) malloc (_TIME_LEN_ * sizeof(char));
   cur  = (char*) malloc (_TIME_LEN_ * sizeof(char));
+  last = (char*) malloc (_TIME_LEN_ * sizeof(char));
   line = (char*) malloc (_LINE_LEN_ * sizeof(char));
-  tmp = (char*) malloc (sizeof(char));
+  tmp  = (char*) malloc (_LINE_LEN_ * sizeof(char));
   
   bzero(cur, _TIME_LEN_);
   bzero(last, _TIME_LEN_);
+  bzero(tmp, _LINE_LEN_);
  
   if ((fd = open(_ACCESS_LOG_, O_RDONLY)) == -1) {
     perror(_ACCESS_LOG_);
@@ -145,24 +139,31 @@ int ll_cla()
         cur = strncpy(cur, line, 19);
 
         if (update(last, cur)) {
-          free(tmp);
-          tmp = (char*) malloc (_LINE_LEN_ * sizeof(char));
+          bzero(tmp, _LINE_LEN_);
           tmp = strcpy(tmp, line);
         }
       }
     }
   }
 
-  char *start = strchr(tmp, '\t');
-  char *stop = strchr(start+1, '\t');
-  int host_len = stop-(start+1);
+  if (last[0] != '\0') {
+    char *start = strchr(tmp, '\t');
+    char *stop = strchr(start+1, '\t');
+    int host_len = stop-(start+1);
+    
+    loc = (char*) malloc (host_len * sizeof(char));
+    bzero(loc, host_len);
+    loc = strncpy(loc, start+1, host_len);
   
-  loc = (char*) malloc (host_len * sizeof(char));
-  loc = strncpy(loc, start+1, host_len);
+    printf("You last accessed this program %s on %s.\n", last, loc);
+    free(loc);
+  }
 
-  printf("You last accessed this program %s on %s.\n", last, loc);
+  else
+    printf("You haven't used this program yet or have been sneaky and "
+            "turned access logging off!\n");
+
   free(tmp);
-  free(loc);
   free(cur);
   free(last);
 

@@ -30,19 +30,28 @@ int main (int argc, char **argv)
       printf("Problems getting all the info for a proper greeting.\n");
   }
 
-  if (cf.log_access)
+  if (cf.log_access) {
+    printf("Appending access log.\n");
     log_access(pw->pw_name);
+  }
 
-  if (cf.cls)
+  if (cf.cls) {
+    printf("Checking log sizes.\n");
     cls();
+  }
 
-  if (cf.ll_cla)
+  if (cf.ll_cla) {
+    printf("Performing low level search for last sighting of this user.\n");
     ll_cla();
+  }
 
-  if (cf.hl_cla)
+  if (cf.hl_cla) {
+    printf("Performing high level search for last sighting of this user.\n");
     hl_cla();
+  }
 
   if (cf.os_dtls) {
+    printf("Fetching some details about OS being used right now.\n");
     struct utsname os;
     int found = uname(&os);
 

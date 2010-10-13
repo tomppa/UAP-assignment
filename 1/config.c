@@ -11,6 +11,7 @@ int process_cfg (struct cfg *cf)
   char line[_CFG_LINE_LEN_], *pch, *opt, *tmp, *tmp1;
   int i = 0, val, res;
 
+  opt = (char*) malloc (_CFG_LINE_LEN_ * sizeof(char));
   f = fopen(_CFG_FILENAME_, "r");
 
   if (f == NULL) {
@@ -35,7 +36,7 @@ int process_cfg (struct cfg *cf)
       pch = strchr(line, '=');
 
     if (pch != NULL) {
-      opt = (char*) malloc (_CFG_LINE_LEN_ * sizeof(char));
+      bzero(opt, _CFG_LINE_LEN_);
       strncpy(opt, line, pch-line);
       val = atoi(pch+1); 
 
@@ -80,8 +81,6 @@ int process_cfg (struct cfg *cf)
           strcat(tmp, opt);
          
         strcpy(cf->uopts, tmp);
-
-        free(opt);
       }
     }
 
@@ -93,6 +92,7 @@ int process_cfg (struct cfg *cf)
   res = fclose(f);
 
   free(tmp);
+  free(opt);
 
   if (res != 0) {
     printf("Couldn't close configuration file %s: %s.\n",

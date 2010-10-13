@@ -8,7 +8,7 @@
 #endif
 
 #ifndef _TIME_LEN_
-#define _TIME_LEN_ 19 // Time format is 'yyyy-mm-dd hh:mm:ss'
+#define _TIME_LEN_ 20 // Time format is 'yyyy-mm-dd hh:mm:ss'
 #endif
 
 #ifndef _ACCESS_LOG_
