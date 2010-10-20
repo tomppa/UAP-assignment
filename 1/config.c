@@ -38,7 +38,7 @@ int process_cfg (struct cfg *cf)
     if (pch != NULL) {
       bzero(opt, _CFG_LINE_LEN_);
       strncpy(opt, line, pch-line);
-      val = atoi(pch+1); 
+      val = atoi(pch+1);
 
       if (strcmp(opt, "greet") == 0)
         cf->greet = val;
@@ -49,11 +49,8 @@ int process_cfg (struct cfg *cf)
       else if (strcmp(opt, "log_access") == 0)
         cf->log_access = val;
 
-      else if (strcmp(opt, "ll_cla") == 0)
-        cf->ll_cla = val;
-
-      else if (strcmp(opt, "hl_cla") == 0)
-        cf->hl_cla = val;
+      else if (strcmp(opt, "cla") == 0)
+        cf->cla = val;
 
       else if (strcmp(opt, "cls") == 0)
         cf->cls = val;
@@ -87,6 +84,8 @@ int process_cfg (struct cfg *cf)
     i++;
   }
 
+  cf->opt_amt = i;
+
   printf("Configuration file processsed and options saved.\n");
 
   res = fclose(f);
@@ -112,12 +111,11 @@ void prt_opt(struct cfg *cf)
          cf->uopts);
 */
   printf("Printing options...\n");
+  printf("Print options? %s\n", cf->print ? "True." : "False.");
   printf("Show greeting? %s\n", cf->greet ? "True." : "False.");
   printf("Log access? %s\n", cf->log_access ? "True." : "False.");
-  printf("Low level check of last access? %s\n",
-         cf->ll_cla ? "True." : "False.");
-  printf("High level check of last access? %s\n",
-         cf->hl_cla ? "True." : "False.");
+  printf("Check of last access from current user? %s\n",
+         cf->cla ? "True." : "False.");
   printf("Check log sizes? %s\n", cf->cls ? "True." : "False.");
   printf("Get OS details? %s\n", cf->os_dtls ? "True." : "False.");
 }

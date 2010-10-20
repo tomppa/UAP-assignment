@@ -100,7 +100,7 @@ int log_access(char *login) {
 }
 
 // Low level way of checking last access from current user.
-int ll_cla()
+int cla()
 {
   int fd, n, i = 0, j = 0;
   char buf[_BUF_SIZE_], *last, *cur, *line, *logname, *loc;
@@ -167,43 +167,6 @@ int ll_cla()
   free(cur);
   free(last);
 
-  return 0;
-}
-
-// High level way of checking last access from current user.
-int hl_cla ()
-{
-  FILE *pFile;
-  char line[_LINE_LEN_], *cur, *last, *tmp;
-  int i = 0;
-
-  last = (char*) malloc (_LINE_LEN_ * sizeof(char));
-
-  pFile = fopen(_ACCESS_LOG_, "r");
-  if (pFile == NULL)
-    perror("Error opening up access log.");
-
-  else {
-    while (i < 20)
-    {
-      tmp = fgets(line, _LINE_LEN_, pFile);
-      cur = strndup(line, (size_t) 19);
-      printf("cur: %s, last: %s\n", cur, last);
-      
-      if (last == NULL)
-        last = cur;
-      else
-        update(cur, last);
-
-      if (feof(pFile))
-        break;
-      i++;
-    }
-
-    fclose(pFile);
-  }
-
-  free(last);
   return 0;
 }
 

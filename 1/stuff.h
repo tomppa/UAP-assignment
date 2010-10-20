@@ -26,8 +26,7 @@
 #ifndef _LOGPATH_
 #define _LOGPATH_ "./logs/"
 extern int log_access(char*);
-extern int ll_cla();
-extern int hl_cla();
+extern int cla();
 #endif
 
 #ifndef _GREET_

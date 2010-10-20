@@ -12,12 +12,12 @@
 
 struct cfg
 {
+  int opt_amt;
   int print;
   int greet;
   int log_access;
   int cls;
-  int ll_cla;
-  int hl_cla;
+  int cla;
   int os_dtls;
   char uopts[100];
 };
