@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -16,13 +17,41 @@
 #include "stuff.h"
 #include "config.h"
 
+int running = 1; // flag to indicate whether to run freely or terminate
+
+static void int_handler(int signo)
+{
+  printf("Received signal %d\n", signo);
+  if (signo == SIGINT)
+    running = 0;
+}
+
+/* Function for checking whether it's time to shutdown gracefully
+   or continue processing commands as normal. */
+int csd ()
+{
+  if (!running) {
+    printf("<%d> SIGINT received, shutting down!\n", getpid());
+    return 1;
+  }
+
+  else
+    return 0;
+}
+
 int main (int argc, char **argv)
 {
   struct passwd *pw = getpwuid(geteuid());
   struct cfg cf;
+  struct sigaction sig;
   pid_t pid = 0;
   int pwrfd, prdfd, crdfd, cwrfd, cret, i = 1;
   char np1[] = "fifo1\0", np2[] = "fifo2\0", *pbuf, *cbuf;
+
+  memset(&sig, 0x00, sizeof(sig));
+  sigemptyset(&sig.sa_mask); // empty the mask
+  sig.sa_handler = int_handler; // set the handler
+  sigaction(SIGINT, &sig, NULL); // use handler for SIGINT
 
   pbuf = (char *) malloc (_MAX_BUF_SIZE_ * sizeof(char));
   cbuf = (char *) malloc (_MAX_BUF_SIZE_ * sizeof(char));
@@ -31,7 +60,11 @@ int main (int argc, char **argv)
 
   printf("<%d> Reading configuration.\n", getpid());
   process_cfg(&cf);
-  
+  sleep(2);
+
+  if (csd())
+    return 1;
+
   printf("<%d> Processing the options.\n", getpid());
  
   if ((mkfifo(np1, 0600) == -1 || mkfifo(np2, 0600) == -1) 
@@ -83,6 +116,9 @@ int main (int argc, char **argv)
 
         default: break;
       }
+
+      if (csd())
+        return 1;
 
       if (pbuf[0] != '\0') {
 
