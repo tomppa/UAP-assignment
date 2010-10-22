@@ -19,11 +19,13 @@ struct cfg
   int cls;
   int cla;
   int os_dtls;
-  char uopts[100];
+  char uopts[80];
+  char bvals[80];
 };
 
 extern struct cfg cf;
 extern int process_cfg(struct cfg*);
+extern void tmpcat(char*, char*);
 extern void prt_opt(struct cfg*);
 
 #endif /* _CFG_HEADER_ */

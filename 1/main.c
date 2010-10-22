@@ -21,7 +21,7 @@ int running = 1; // flag to indicate whether to run freely or terminate
 
 static void int_handler(int signo)
 {
-  printf("Received signal %d\n", signo);
+  printf("<%d> Received signal %d\n", getpid(), signo);
   if (signo == SIGINT)
     running = 0;
 }
@@ -31,7 +31,7 @@ static void int_handler(int signo)
 int csd ()
 {
   if (!running) {
-    printf("<%d> SIGINT received, shutting down!\n", getpid());
+    printf("<%d> Shutdown flag set, making a clean exit!\n", getpid());
     return 1;
   }
 
@@ -87,6 +87,9 @@ int main (int argc, char **argv)
       return 1;
     }
 
+    // Set process group ID.
+    setpgid(getpid(), getpid());
+
     while (i <= cf.opt_amt)
     {
       switch (i)
@@ -117,8 +120,14 @@ int main (int argc, char **argv)
         default: break;
       }
 
-      if (csd())
+      if (csd()) {
+        printf("<%d> Closing pipes and exiting.\n", getpid());
+
+        close(pwrfd);
+        close(prdfd);
+
         return 1;
+      }
 
       if (pbuf[0] != '\0') {
 
@@ -158,12 +167,18 @@ int main (int argc, char **argv)
       return 1;
     }
 
-    sleep(0);
+    // Set process group ID.
+    setpgid(getpid(), getppid());
+
+    sleep(1);
 
     while (read(crdfd, cbuf, _MAX_BUF_SIZE_) > 0)
     {
 
-      sleep(0);
+      sleep(1);
+
+      if (csd())
+        break;
     
       // Read command from first pipe.
       printf("<%d> Command '%s' received.\n", getpid(), cbuf);
@@ -226,6 +241,10 @@ int main (int argc, char **argv)
   if (strlen(cf.uopts) > (size_t) 0)
     printf("<%d> Following options in configuration were unknown: %s.\n",
            getpid(), cf.uopts);
+
+  if (strlen(cf.bvals) > (size_t) 0)
+    printf("<%d> Following options in configuration had bad values: %s.\n",
+           getpid(), cf.bvals);
   
   return 0;
 }
