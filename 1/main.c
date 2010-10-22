@@ -41,12 +41,40 @@ int csd ()
 
 int main (int argc, char **argv)
 {
+  struct stat st;
   struct passwd *pw = getpwuid(geteuid());
   struct cfg cf;
   struct sigaction sig;
   pid_t pid = 0;
   int pwrfd, prdfd, crdfd, cwrfd, cret, i = 1;
   char np1[] = "fifo1\0", np2[] = "fifo2\0", *pbuf, *cbuf;
+  FILE *file;
+
+  if (stat("logs/", &st) != 0) {
+    fprintf(stdout, "<%d> Directory 'logs' not found, creating it ...",
+            getpid());
+    if (mkdir("logs", S_IRWXU | S_IRGRP | S_IROTH) < 0) {
+      perror("Directory creation failed, exiting.\n");
+      return 1;
+    }
+
+    else
+      fprintf(stdout, " creation successfull.\n");
+  }
+
+  file = freopen(_STD_OUT_LOG_, "a+", stdout);
+
+  if (file == NULL) {
+    perror("Failed to redirect stdout, exiting.\n");
+    return 1;
+  }
+
+  file = freopen(_STD_ERR_LOG_, "a+", stderr);
+
+  if (file == NULL) {
+    perror("Failed to redirect stderr, exiting.\n");
+    return 1;
+  }
 
   memset(&sig, 0x00, sizeof(sig));
   sigemptyset(&sig.sa_mask); // empty the mask
@@ -58,14 +86,14 @@ int main (int argc, char **argv)
   bzero(pbuf, _MAX_BUF_SIZE_);
   bzero(cbuf, _MAX_BUF_SIZE_);
 
-  printf("<%d> Reading configuration.\n", getpid());
+  fprintf(stdout, "<%d> Reading configuration.\n", getpid());
   process_cfg(&cf);
   sleep(2);
 
   if (csd())
     return 1;
 
-  printf("<%d> Processing the options.\n", getpid());
+  fprintf(stdout, "<%d> Processing the options.\n", getpid());
  
   if ((mkfifo(np1, 0600) == -1 || mkfifo(np2, 0600) == -1) 
       && (errno != EEXIST)) {
@@ -121,7 +149,7 @@ int main (int argc, char **argv)
       }
 
       if (csd()) {
-        printf("<%d> Closing pipes and exiting.\n", getpid());
+        fprintf(stdout, "<%d> Closing pipes and exiting.\n", getpid());
 
         close(pwrfd);
         close(prdfd);
@@ -131,7 +159,8 @@ int main (int argc, char **argv)
 
       if (pbuf[0] != '\0') {
 
-        printf("<%d> Sending a command (%s) to child.\n", getpid(), pbuf);
+        fprintf(stdout, "<%d> Sending a command (%s) to child.\n",
+                getpid(), pbuf);
   
         // Write something to first pipe.
         write(pwrfd, pbuf, strlen(pbuf));
@@ -142,11 +171,11 @@ int main (int argc, char **argv)
     
         // Process reply.
         if (strcmp(pbuf, "success"))
-          printf("<%d> Command delivered and performed!\n", getpid());
+          fprintf(stdout, "<%d> Command delivered and performed!\n", getpid());
         else if (strcmp(pbuf, "failure"))
-          printf("<%d> Delivery had some problems!\n", getpid());
+          fprintf(stdout, "<%d> Delivery had some problems!\n", getpid());
         else
-          printf("<%d> Received non-standard reply.\n", getpid());
+          fprintf(stdout, "<%d> Received non-standard reply.\n", getpid());
 
         bzero(pbuf, _MAX_BUF_SIZE_);
         sleep(1);
@@ -181,7 +210,7 @@ int main (int argc, char **argv)
         break;
     
       // Read command from first pipe.
-      printf("<%d> Command '%s' received.\n", getpid(), cbuf);
+      fprintf(stdout, "<%d> Command '%s' received.\n", getpid(), cbuf);
       
       // Process command.
       if (strcmp(cbuf, "greet") == 0)
@@ -211,7 +240,7 @@ int main (int argc, char **argv)
         }
  
         else {
-          printf("Couldn't get OS details: %s.\n", strerror(errno));
+          fprintf(stdout, "Couldn't get OS details: %s.\n", strerror(errno));
           cret = 1;
         }
       }
@@ -239,11 +268,11 @@ int main (int argc, char **argv)
   }
 
   if (strlen(cf.uopts) > (size_t) 0)
-    printf("<%d> Following options in configuration were unknown: %s.\n",
+    fprintf(stdout, "<%d> Following configuration options were unknown: %s.\n",
            getpid(), cf.uopts);
 
   if (strlen(cf.bvals) > (size_t) 0)
-    printf("<%d> Following options in configuration had bad values: %s.\n",
+    fprintf(stdout, "<%d> Following options had bad values: %s.\n",
            getpid(), cf.bvals);
   
   return 0;

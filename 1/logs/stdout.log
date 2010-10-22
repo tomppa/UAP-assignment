@@ -1,0 +1,31 @@
+<29714> Reading configuration.
+Configuration file processsed and options saved.
+<29714> Processing the options.
+<29719> Command 'cls' received.
+Size of log directory is: 1550
+<29719> Command 'cla' received.
+You last accessed this program 2010-10-22 10:47:03 on morrison.
+<29719> Received signal 2
+<29714> Reading configuration.
+Configuration file processsed and options saved.
+<29714> Processing the options.
+<29714> Sending a command (cls) to child.
+<29714> Command delivered and performed!
+<29714> Sending a command (cla) to child.
+<29714> Command delivered and performed!
+<29714> Received signal 2
+<29714> Shutdown flag set, making a clean exit!
+<29714> Closing pipes and exiting.
+<2091> Reading configuration.
+Configuration file processsed and options saved.
+<2091> Processing the options.
+<2091> Sending a command (cls) to child.
+<2091> Received signal 2
+<2091> Command delivered and performed!
+<2091> Shutdown flag set, making a clean exit!
+<2091> Closing pipes and exiting.
+<2091> Reading configuration.
+Configuration file processsed and options saved.
+<2091> Processing the options.
+<2106> Received signal 2
+<2106> Shutdown flag set, making a clean exit!

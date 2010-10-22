@@ -19,7 +19,7 @@ all: $(PROJECT)
 $(PROJECT): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
 
-main.o: main.c stuff.o config.o
+main.o: main.c stuff.o config.o main.h
 config.o: config.c config.h
 stuff.o: stuff.c stuff.h
 
