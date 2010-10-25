@@ -1,0 +1,33 @@
+CC =		gcc
+CFLAGS = 	-O0 -g -Wall -pedantic -pg -std=c99
+LDFLAGS =	-lpthread
+CFLAGS +=	-D_GNU_SOURCE
+
+SUFFIXES = .c .o
+SOURCES = $(wildcard *.c)
+OBJECTS = $(SOURCES:.c=.o)
+DIFFS = $(wildcard *.diff)
+LIBS = $(wildcard *.a)
+
+.PHONY: all cleanall cleandiff cleanlib cleanobj
+
+all: $(PROJECT)
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+$(PROJECT): $(OBJECTS)
+	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
+
+cleanall: cleandiff cleanlib cleanobj
+	rm -f $(PROGS)
+
+cleandiff:
+	rm -f $(DIFFS)
+
+cleanlib:
+	rm -f $(LIBS)
+
+cleanobj:
+	rm -f $(OBJECTS)
+

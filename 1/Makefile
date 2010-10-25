@@ -1,34 +1,23 @@
-CC =		gcc
-CFLAGS = 	-O0 -g -Wall -pedantic -pg -std=c99
-LDFLAGS =	-lpthread
-CFLAGS +=	-D_GNU_SOURCE
+# Main makefile.
 
-SUFFIXES = .c .o
-SOURCES = $(wildcard *.c)
-OBJECTS = $(SOURCES:.c=.o)
-DIFFS = $(wildcard *.diff)
-PROJECT = main
+#PROJECT = main
+MODULES = CONFIG STUFF
 
-.PHONY: all cleanall cleanobj cleandiff
+include ~/code/c/uap/assignments/1/Makefile.common
 
-all: $(PROJECT)
+all: $(MODULES) $(PROJECT)
 
-.c.o:
-	$(CC) $(CFLAGS) -c $<
+CONFIG:
+	cd ./cfg/ ; make
 
-$(PROJECT): $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
+STUFF:
+	cd ./stuff/ ; make
 
-main.o: main.c stuff.o config.o main.h
-config.o: config.c config.h
-stuff.o: stuff.c stuff.h
+clean: cleanlib cleanobj cleancfg cleanstuff
 
-cleanall: cleanobj cleandiff
-	rm -f $(PROGS)
+cleancfg:
+	cd ./cfg/ ; make cleanall
 
-cleanobj:
-	rm -f $(OBJECTS)
-
-cleandiff:
-	rm -f $(DIFFS)
+cleanstuff:
+	cd ./stuff/ ; make cleanall
 
