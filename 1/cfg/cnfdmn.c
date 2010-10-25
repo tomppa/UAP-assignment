@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include <sys/types.h>
@@ -54,23 +55,26 @@ int daemonize()
   int i;
 
   i = fork();
+
   if (i > 0)
     _exit(0); // Parent process exits.
 
   if (i < 0)
     return -1; // Failed to fork.
 
-  if (setsid() < 0 || chdir(_CFG_DIR_) == -1)
+  if (setsid() < 0 || chdir(_DMN_DIR_) == -1)
     return -1; // Session creation or directory change failed.
 
   umask(027);
 
+/*
   for (i = sysconf(_SC_OPEN_MAX); i >= 0; i--)
     close(i); // Close descriptors one by one.
 
   open("/dev/null", O_RDWR);
   dup(0); // Direct STDOUT to /dev/null.
   dup(0); // Direct STDERR to /dev/null.
+*/
 
   return 0;
 }
@@ -92,18 +96,49 @@ int clock()
 int main(void)
 {
   struct sigaction sig;
+//  struct stat st;
+  FILE *file;
+
+/*
+  if (stat("./../logs/", &st) != 0) {
+    fprintf(stdout, "<%d> Directory 'logs' not found, creating it ...",
+            getpid());
+    if (mkdir("logs", S_IRWXU | S_IRGRP | S_IROTH) < 0) {
+      perror("Directory creation failed, exiting.\n");
+      return 1;
+    }
+
+    else
+      fprintf(stdout, " creation successfull.\n");
+  }
+*/
 
   if (daemonize() < 0) {
     perror("daemon init");
     exit(2);
   }
 
+  file = freopen("cnfdmn.out", "a+", stdout);
+  file = freopen("cnfdmn.err", "a+", stderr);
+
   memset(&sig, 0x00, sizeof(sig));
   sigemptyset(&sig.sa_mask);
   sig.sa_handler = int_handler;
   sigaction(SIGINT, &sig, NULL);
 
-  sleep(60);
+  int i = 0;
+
+  while (!csd())
+  {
+    if (i > 2)
+      kill(getpid(), SIGINT);
+
+    sleep(15);
+
+    i++;
+  }
+
+  fprintf(stdout, "Shutdown requested!\n");
 
   return(0);
 }

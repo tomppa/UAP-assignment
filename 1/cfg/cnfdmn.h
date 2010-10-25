@@ -1,7 +1,7 @@
 // Header for the configuration daemon.
 
-#ifndef _CFG_DIR_
-#define _CFG_DIR_ "./cfg"
+#ifndef _DMN_DIR_
+#define _DMN_DIR_ "./dmn"
 #endif
 
 extern int cpipes();
