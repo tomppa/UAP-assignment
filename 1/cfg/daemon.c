@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <fcntl.h>
+#include <limits.h>
 #include <signal.h>
 #include <string.h>
 #include <time.h>
@@ -31,7 +32,7 @@ int csd()
   if (!alive) {
     fprintf(stdout, "Shutdown flag set, closing files and exiting.\n");
     cpipes();
-    return 1;
+    return -1;
   }
 
   return 0;
@@ -70,31 +71,70 @@ int daemonize()
 
   umask(027);
 
-/*
-  for (i = sysconf(_SC_OPEN_MAX); i >= 0; i--)
-    close(i); // Close descriptors one by one.
-
-  open("/dev/null", O_RDWR);
-  dup(0); // Direct STDOUT to /dev/null.
-  dup(0); // Direct STDERR to /dev/null.
-*/
-
   return 0;
 }
 
 // Open the file lock to show this process has terminated.
-int olck()
+int olck(int fd)
 {
+  struct flock fl;
+
+  memset(&fl, 0, sizeof(fl));
+
+  fcntl(fd, F_GETLK, &fl);
+
+  if (fl.l_type == F_UNLCK)
+    printf("No lock encountered, so no need to try unlocking the file.\n");
+
+  else {
+    fl.l_type = F_UNLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = _LCK_ST_;
+    fl.l_len = _LCK_LEN_;
+
+    if (fcntl(fd, F_SETLK, &fl) < 0) {
+      perror("Problem unlocking lockfile");
+      return -1;
+    }
+
+    printf("Lockfile unlocked.\n");
+  }
+
+  close(fd);
+  printf("Lockfile descriptor closed.\n");
 
   return 0;
 }
 
 // Close the file (lock it down) indicating this daemon is operational.
-int clck()
+int clck(int fd)
 {
-  int pid = getpid();
+  fd = open(_LCK_FILE_, O_WRONLY|O_CREAT|O_TRUNC);
 
-  fopen(_LOCK_FILE_, "a+");
+  if (fd < 0) {
+    perror("Problem opening lockfile");
+    return -1;
+  }
+
+  printf("Lockfile opened/created.\n");
+
+  struct flock fl;
+
+  memset(&fl, 0, sizeof(fl)); // initialize fl
+
+  fl.l_type = F_WRLCK;
+  fl.l_whence = SEEK_SET;
+  fl.l_start = _LCK_ST_;
+  fl.l_len = _LCK_LEN_;
+
+  //TODO: This for some reason always returns ENOLCK.
+  if (fcntl(fd, F_SETLKW, &fl) < 0) {
+    perror("Problem locking lockfile");
+    close(fd);
+    return -1;
+  }
+
+  printf("Lock on lockfile acquired.\n");
 
   return 0;
 }
@@ -111,7 +151,7 @@ int main(void)
             getpid());
     if (mkdir("./../logs", S_IRWXU | S_IRGRP | S_IROTH) < 0) {
       perror("Directory creation failed");
-      return 1;
+      return EXIT_FAILURE;
     }
 
     else
@@ -144,49 +184,53 @@ int main(void)
   sig.sa_handler = int_handler;
   sigaction(SIGINT, &sig, NULL);
 
-  int i = 0, mopen, fd = 0;
+  int i = 0, mopen, cfg_fd = 0, lck_fd = 0;
   char *ptr = NULL;
   size_t mmapsize = 0;
 
   while (!csd())
   {
     /* TODO:
-     * Lock down a file with pid of this process.
      * Open up FIFOs.
-     * Sleep until receiving a signal to check pipe.
      * Process command, write to pipe and go back to sleep.
-     * Idle around until receiving SIGINT.
      */
     if (i == 0)
-      mopen = fmap(fd, ptr, mmapsize);
+      mopen = fmap(cfg_fd, ptr, mmapsize);
+
+    if (i == 1) {
+      if (!clck(lck_fd))
+        i = 2;
+    }
 
     if (i == 3) {
-      process_cfg(&cf, fd);
+      process_cfg(&cf, cfg_fd);
       prt_opt(&cf);
     }
 
     if (i == 2)
       kill(getpid(), SIGINT);
 
-    printf("Sleeping for 15 seconds...\n");
-    sleep(15);
+    printf("Sleeping for 5 seconds...\n");
+    sleep(5);
     printf("... woke up!\n");
 
     i++;
   }
   
   if (mopen)
-    fumap(fd, ptr, mmapsize);
+    fumap(cfg_fd, ptr, mmapsize);
 
   /* TODO:
-   * Open up the file lock and delete the file.
    * Close down pipes.
-   * Exit.
    */
+
+  if (!olck(lck_fd)) {
+    //TODO: some error processing here.
+  }
 
 
   printf("Program terminating.\n");
 
-  return(0);
+  return EXIT_SUCCESS;
 }
 
