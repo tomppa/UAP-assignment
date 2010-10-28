@@ -1,7 +1,7 @@
-PROJECT = cnfdmn
+PROJECT = daemon
 
 include ~/code/c/uap/assignments/1/Makefile.common
 
-cnfdmn.o: cnfdmn.c cnfdmn.h
-#config.o: config.c config.h
+daemon.o: daemon.c daemon.h
+config.o: config.c config.h
 

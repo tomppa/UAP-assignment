@@ -5,15 +5,18 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
-#include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "cnfdmn.h"
+#include "daemon.h"
+#include "config.h"
 
 int alive = 1;
+time_t last_read = 0;
+struct cfg cf;
 
 // Handle SIGINTs.
 static void int_handler(int signo)
@@ -80,15 +83,18 @@ int daemonize()
 }
 
 // Open the file lock to show this process has terminated.
-int olock()
+int olck()
 {
 
   return 0;
 }
 
 // Close the file (lock it down) indicating this daemon is operational.
-int clock()
+int clck()
 {
+  int pid = getpid();
+
+  fopen(_LOCK_FILE_, "a+");
 
   return 0;
 }
@@ -103,8 +109,8 @@ int main(void)
   if (stat("./../logs/", &st) != 0) {
     fprintf(stdout, "<%d> Directory 'logs' not found, creating it ...",
             getpid());
-    if (mkdir("logs", S_IRWXU | S_IRGRP | S_IROTH) < 0) {
-      perror("Directory creation failed, exiting.\n");
+    if (mkdir("./../logs", S_IRWXU | S_IRGRP | S_IROTH) < 0) {
+      perror("Directory creation failed");
       return 1;
     }
 
@@ -118,27 +124,68 @@ int main(void)
     exit(2);
   }
 
-  file = freopen("cnfdmn.out", "a+", stdout);
-  file = freopen("cnfdmn.err", "a+", stderr);
+  /* Assign stdout and stderr to their respective files and set up line
+     buffering. */
+  file = freopen(_DMN_OUT_, "a+", stdout);
+  setvbuf(file, NULL, _IOLBF, (size_t) 512);
+  file = freopen(_DMN_ERR_, "a+", stderr);
+  setvbuf(file, NULL, _IOLBF, (size_t) 512);
+
+  time_t tim=time(NULL);
+  struct tm *now = localtime(&tim);
+
+  fprintf(stdout, "[%02d:%02d] New round of execution.\n",
+          now->tm_hour, now->tm_min);
+  fprintf(stderr, "[%02d:%02d] New round of execution.\n",
+          now->tm_hour, now->tm_min);
 
   memset(&sig, 0x00, sizeof(sig));
   sigemptyset(&sig.sa_mask);
   sig.sa_handler = int_handler;
   sigaction(SIGINT, &sig, NULL);
 
-  int i = 0;
+  int i = 0, mopen, fd = 0;
+  char *ptr = NULL;
+  size_t mmapsize = 0;
 
   while (!csd())
   {
-    if (i > 2)
+    /* TODO:
+     * Lock down a file with pid of this process.
+     * Open up FIFOs.
+     * Sleep until receiving a signal to check pipe.
+     * Process command, write to pipe and go back to sleep.
+     * Idle around until receiving SIGINT.
+     */
+    if (i == 0)
+      mopen = fmap(fd, ptr, mmapsize);
+
+    if (i == 3) {
+      process_cfg(&cf, fd);
+      prt_opt(&cf);
+    }
+
+    if (i == 2)
       kill(getpid(), SIGINT);
 
+    printf("Sleeping for 15 seconds...\n");
     sleep(15);
+    printf("... woke up!\n");
 
     i++;
   }
+  
+  if (mopen)
+    fumap(fd, ptr, mmapsize);
 
-  fprintf(stdout, "Shutdown requested!\n");
+  /* TODO:
+   * Open up the file lock and delete the file.
+   * Close down pipes.
+   * Exit.
+   */
+
+
+  printf("Program terminating.\n");
 
   return(0);
 }

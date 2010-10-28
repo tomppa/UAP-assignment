@@ -4,9 +4,18 @@
 #define _DMN_DIR_ "./dmn"
 #endif
 
+#ifndef _DMN_OUT_
+#define _DMN_OUT_ "daemon.out"
+#endif
+
+#ifndef _DMN_ERR_
+#define _DMN_ERR_ "daemon.err"
+#endif
+
 extern int cpipes();
 extern int opipes();
-extern int clock();
-extern int olock();
+extern int clck();
+extern int olck();
 extern int daemonize();
+
 
