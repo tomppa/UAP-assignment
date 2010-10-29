@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
@@ -19,57 +20,137 @@ int alive = 1;
 time_t last_read = 0;
 struct cfg cf;
 
-// Handle SIGINTs.
-static void int_handler(int signo)
+// Handle signals.
+static void sig_hdlr(int signo)
 {
-  if (signo == SIGINT)
+  if (signo == SIGINT) {
+    printf("SIGINT received, setting shutdown flag.\n");
     alive = 0;
+  }
 }
 
 // Check for shutdown conditions, i.e., whether to live or die.
 int csd()
 {
   if (!alive) {
-    fprintf(stdout, "Shutdown flag set, closing files and exiting.\n");
-    cpipes();
+    printf("Shutdown flag is set.\n");
     return -1;
   }
 
   return 0;
 }
 
-// Open up the pipes required for communicating with other processes.
-int opipes()
+// Open up the pipe required for communicating with other processes.
+int opipe(int fd)
 {
+  if (mkfifo(_DMN_FIFO_, 0600) == -1) {
+    if (errno == EEXIST)
+      printf("Warning: FIFO already exists, it could be in use.\n");
+
+    else {
+      perror("Failed to create FIFO");
+      return -1;
+    }
+  }
+  
+  if (errno != EEXIST)
+    printf("FIFO created.\n");
+
+  if ((fd = open(_DMN_FIFO_, O_RDWR)) == -1) {
+    perror("Failed to open FIFO");
+    return -1;
+  }
+
+  printf("FIFO opened.\n");
 
   return 0;
 }
 
-// Close down pipes used to communicate with the rest of the world.
-int cpipes()
+// Close down the pipe used to communicate with the rest of the world.
+int cpipe(int fd)
 {
+  if (close(fd) == -1) {
+    perror("Failed to close down FIFO");
+    return -1;
+  }
+
+  printf("FIFO closed.\n");
 
   return 0;
 }
 
 /* Remove the process from the rest of the program, to work as an independent
-   unit. */
+ * unit.
+ */
 int daemonize()
 {
   int i;
+  FILE *file;
+
+  printf("Daemonize starting up.\n");
 
   i = fork();
 
-  if (i > 0)
+  if (i > 0) {
+    printf("\t- parent of daemon exits.\n");
     _exit(0); // Parent process exits.
+  }
 
-  if (i < 0)
-    return -1; // Failed to fork.
+  if (i < 0) {
+    perror("Failed to fork");
+    return -1;
+  }
 
-  if (setsid() < 0 || chdir(_DMN_DIR_) == -1)
-    return -1; // Session creation or directory change failed.
+  printf("\t- fork successfull, child up and running.\n");
+
+  if (setsid() < 0 || chdir(_DMN_DIR_) == -1) {
+    perror("Session creation or directory change failed");
+    return -1;
+  }
+
+  printf("\t- new session created and working directory changed.\n");
 
   umask(027);
+
+  printf("\t- mask changed.\n");
+  printf("\t- moving stdout & stderr to logfiles for further reading...");
+
+  /* Assign stdout and stderr to their respective files and set up line
+   * buffering.
+   */
+  file = freopen(_DMN_OUT_, "a+", stdout);
+
+  if (file == NULL) {
+    perror("Associating stdout failed");
+    return -1;
+  }
+
+  setvbuf(file, NULL, _IOLBF, (size_t) 512);
+  file = freopen(_DMN_ERR_, "a+", stderr);
+
+  if (file == NULL) {
+    /* Have to use printf here and print an error to standard out, since
+     * strerr might be assigned to some unknown location and moving it again
+     * would need even more error checking.
+     */
+    printf("Associating stderr failed: %s.\n", strerror(errno));
+    return -1;
+  }
+
+  setvbuf(file, NULL, _IOLBF, (size_t) 512);
+
+  printf("Daemonize finished successfully.\n");
+
+  time_t tim=time(NULL);
+  struct tm *now = localtime(&tim);
+
+  /* Just to facilitate reading log files a bit, since all log entries
+   * don't have a timestamp yet.
+   */
+  fprintf(stdout, "[%02d:%02d] New round of execution.\n",
+          now->tm_hour, now->tm_min);
+  fprintf(stderr, "[%02d:%02d] New round of execution.\n",
+          now->tm_hour, now->tm_min);
 
   return 0;
 }
@@ -81,7 +162,10 @@ int olck(int fd)
 
   memset(&fl, 0, sizeof(fl));
 
-  fcntl(fd, F_GETLK, &fl);
+  if (fcntl(fd, F_GETLK, &fl) < 0) {
+    perror("Problem probing lockfile for locks");
+    return -1;
+  }
 
   if (fl.l_type == F_UNLCK)
     printf("No lock encountered, so no need to try unlocking the file.\n");
@@ -127,10 +211,10 @@ int clck(int fd)
   fl.l_start = _LCK_ST_;
   fl.l_len = _LCK_LEN_;
 
-  //TODO: This for some reason always returns ENOLCK.
+  /*TODO: This for some reason always returns ENOLCK on school computers.
+          NFS issue perhaps? */
   if (fcntl(fd, F_SETLKW, &fl) < 0) {
     perror("Problem locking lockfile");
-    close(fd);
     return -1;
   }
 
@@ -142,10 +226,11 @@ int clck(int fd)
 int main(void)
 {
   struct sigaction sig;
-//  struct stat st;
-  FILE *file;
-
 /*
+  TODO: move to a common library, where all modules can use it.
+
+  struct stat st;
+
   if (stat("./../logs/", &st) != 0) {
     fprintf(stdout, "<%d> Directory 'logs' not found, creating it ...",
             getpid());
@@ -159,75 +244,65 @@ int main(void)
   }
 */
 
-  if (daemonize() < 0) {
-    perror("daemon init");
+  if (daemonize() < 0)
     exit(2);
-  }
-
-  /* Assign stdout and stderr to their respective files and set up line
-     buffering. */
-  file = freopen(_DMN_OUT_, "a+", stdout);
-  setvbuf(file, NULL, _IOLBF, (size_t) 512);
-  file = freopen(_DMN_ERR_, "a+", stderr);
-  setvbuf(file, NULL, _IOLBF, (size_t) 512);
-
-  time_t tim=time(NULL);
-  struct tm *now = localtime(&tim);
-
-  fprintf(stdout, "[%02d:%02d] New round of execution.\n",
-          now->tm_hour, now->tm_min);
-  fprintf(stderr, "[%02d:%02d] New round of execution.\n",
-          now->tm_hour, now->tm_min);
 
   memset(&sig, 0x00, sizeof(sig));
   sigemptyset(&sig.sa_mask);
-  sig.sa_handler = int_handler;
+  sig.sa_handler = sig_hdlr;
   sigaction(SIGINT, &sig, NULL);
 
-  int i = 0, mopen, cfg_fd = 0, lck_fd = 0;
+  int i = 0, mopen, cfg_fd = 0, lck_fd = 0, fifo_fd = 0;
   char *ptr = NULL;
   size_t mmapsize = 0;
 
   while (!csd())
   {
     /* TODO:
-     * Open up FIFOs.
      * Process command, write to pipe and go back to sleep.
      */
-    if (i == 0)
+
+    // On first rotation, map config file to memory and open pipe.
+    if (i == 0) {
       mopen = fmap(cfg_fd, ptr, mmapsize);
+      if (opipe(fifo_fd) < 0)
+        i = -2;
+    }
 
+    // Try to acquire create and lock the lockfile.
     if (i == 1) {
-      if (!clck(lck_fd))
-        i = 2;
+      if (clck(lck_fd) < 0)
+        i = -2;
     }
 
+    // Read up config file and process its contents.
     if (i == 3) {
-      process_cfg(&cf, cfg_fd);
-      prt_opt(&cf);
+      i = -2;
+      //process_cfg(&cf, cfg_fd);
+      //prt_opt(&cf);
     }
 
-    if (i == 2)
+    // Terminate program, only come here if something went wrong.
+    if (i == -2)
       kill(getpid(), SIGINT);
 
-    printf("Sleeping for 5 seconds...\n");
-    sleep(5);
+    printf("Sleeping for a while...\n");
+    sleep(_SLEEP_LEN_);
     printf("... woke up!\n");
 
     i++;
   }
   
-  if (mopen)
-    fumap(cfg_fd, ptr, mmapsize);
-
-  /* TODO:
-   * Close down pipes.
-   */
-
-  if (!olck(lck_fd)) {
-    //TODO: some error processing here.
+  if (mopen) {
+    if (fumap(cfg_fd, ptr, mmapsize))
+      printf("Problem unmapping config file, see error log.\n");
   }
 
+  if (cpipe(fifo_fd) < 0)
+    printf("Problem closing pipe, see error log.\n");
+
+  if (olck(lck_fd) < 0)
+    printf("Problem opening lock, see error log.\n");
 
   printf("Program terminating.\n");
 

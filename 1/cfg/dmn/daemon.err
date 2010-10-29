@@ -25,3 +25,34 @@ Problem locking lockfile: No locks available
 Problem locking lockfile: No locks available
 [15:02] New round of execution.
 Problem locking lockfile: No locks available
+[11:55] New round of execution.
+Problem locking lockfile: No locks available
+[14:23] New round of execution.
+Failed to create FIFO: File exists
+Problem locking lockfile: No locks available
+Problem unlocking lockfile: Bad file descriptor
+[14:26] New round of execution.
+Failed to create FIFO: File exists
+Problem locking lockfile: No locks available
+Problem unlocking lockfile: Bad file descriptor
+[14:29] New round of execution.
+Failed to create FIFO: File exists
+Problem locking lockfile: No locks available
+Problem unlocking lockfile: Bad file descriptor
+[14:40] New round of execution.
+Failed to create FIFO: File exists
+Problem locking lockfile: No locks available
+Problem unlocking lockfile: Bad file descriptor
+[14:42] New round of execution.
+Problem unlocking lockfile: Bad file descriptor
+[14:46] New round of execution.
+Problem probing lockfile for locks: Bad file descriptor
+[14:48] New round of execution.
+Problem locking lockfile: No locks available
+Problem probing lockfile for locks: Bad file descriptor
+[14:52] New round of execution.
+Problem locking lockfile: No locks available
+Problem probing lockfile for locks: Bad file descriptor
+[14:53] New round of execution.
+Problem locking lockfile: No locks available
+Problem probing lockfile for locks: Bad file descriptor
