@@ -18,11 +18,8 @@ int process_cfg (struct cfg *cf, int fd)
   char line[_CFG_LINE_LEN_], *pch, *opt, *tmp, *tmp1;
   int i = 0, val, res;
 
-  printf("Right before the fdopen().\n");
-
-  f = fdopen(fd, "r");
-
-  printf("Right after the fdopen().\n");
+  // Duplicate the file descriptor, so closing the stream won't kill it.
+  f = fdopen(dup(fd), "r");
 
   if (f == NULL) {
     perror("Couldn't open configuration file");
@@ -107,6 +104,8 @@ int process_cfg (struct cfg *cf, int fd)
 
     return -1;
   }
+
+  printf("Closed the filestream on config file.\n");
 
   return 0;
 }

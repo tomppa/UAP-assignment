@@ -1,11 +1,13 @@
 # Main makefile.
 
-#PROJECT = main
+PROJECT = main
 MODULES = CONFIG STUFF
 
 include ~/code/c/uap/assignments/1/Makefile.common
 
 all: $(MODULES) $(PROJECT)
+
+main.o: main.c main.h
 
 CONFIG:
 	cd ./cfg/ ; make
@@ -13,7 +15,7 @@ CONFIG:
 STUFF:
 	cd ./stuff/ ; make
 
-clean: cleanlib cleanobj cleancfg cleanstuff
+cleanall: cleandiff cleanfifo cleanlib cleanlock cleanobj cleancfg cleanstuff
 
 cleancfg:
 	cd ./cfg/ ; make cleanall

@@ -16,16 +16,35 @@
 #include "daemon.h"
 #include "config.h"
 
-int alive = 1;
-time_t last_read = 0;
+int alive = 1, cfg = 0, rd = 0, mn = 0;
 struct cfg cf;
 
 // Handle signals.
 static void sig_hdlr(int signo)
 {
-  if (signo == SIGINT) {
-    printf("SIGINT received, setting shutdown flag.\n");
-    alive = 0;
+  switch (signo) {
+    case SIGINT:
+      printf("SIGINT received, setting shutdown flag.\n");
+      alive = 0;
+      break;
+
+    case SIGPIPE:
+      printf("SIGPIPE received, main wants to start processing config.\n");
+      cfg = 1;
+      break;
+
+    case SIGUSR1:
+      printf("SIGUSR1 received, main has written something on pipe.\n");
+      rd = 1;
+      break;
+
+    case SIGUSR2:
+      printf("SIGUSR2 received, main has finished reading command.\n");
+      mn = 1;
+      break;
+
+    default:
+      fprintf(stderr, "Received a signal (%d) that wasn't handled properly!\n", signo);
   }
 }
 
@@ -56,7 +75,7 @@ int opipe(int *fd)
   if (errno != EEXIST)
     printf("FIFO created.\n");
 
-  if ((*fd = open(_DMN_FIFO_, O_RDWR)) == -1) {
+  if ((*fd = open(_DMN_FIFO_, O_RDWR|O_NONBLOCK)) == -1) {
     perror("Failed to open FIFO");
     return -1;
   }
@@ -114,7 +133,7 @@ int daemonize()
   umask(027);
 
   printf("\t- mask changed.\n");
-  printf("\t- moving stdout & stderr to logfiles for further reading...");
+  printf("\t- moving stdout & stderr to logfiles for further reading...\n");
 
   /* Assign stdout and stderr to their respective files and set up line
    * buffering.
@@ -218,9 +237,10 @@ int clck(int *fd)
   return 0;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
   struct sigaction sig;
+  int pid = 0;
 /*
   TODO: move to a common library, where all modules can use it.
 
@@ -238,6 +258,15 @@ int main(void)
       fprintf(stdout, " creation successfull.\n");
   }
 */
+  if (argc == 2) {
+    pid = atoi(argv[1]);
+    printf("Process ID of calling process is %d.\n", pid);
+  }
+
+  else {
+    printf("Tsk tsk! Give one and only one parameter as parameter!\n");
+    return EXIT_FAILURE;
+  }
 
   if (daemonize() < 0)
     exit(2);
@@ -246,8 +275,11 @@ int main(void)
   sigemptyset(&sig.sa_mask);
   sig.sa_handler = sig_hdlr;
   sigaction(SIGINT, &sig, NULL);
+  sigaction(SIGPIPE, &sig, NULL);
+  sigaction(SIGUSR1, &sig, NULL);
+  sigaction(SIGUSR2, &sig, NULL);
 
-  int i = 0, mopen, cfg_fd = 0, lck_fd = 0, fifo_fd = 0;
+  int i = 0, mopen = 0, cfg_fd = 0, lck_fd = 0, fifo_fd = 0;
   char *ptr = NULL;
   size_t mmapsize = (size_t) 0;
 
@@ -257,24 +289,35 @@ int main(void)
      * Process command, write to pipe and go back to sleep.
      */
 
-    // On first rotation, map config file to memory and open pipe.
+    /* On first rotation, map config file to memory and open pipe.
+     * Also open up lockfile and put a lock on it to show daemon is alive.
+     */
     if (i == 0) {
       mopen = fmap(&cfg_fd, &ptr, &mmapsize);
-      if (opipe(&fifo_fd) < 0)
+      if (opipe(&fifo_fd) < 0 || clck(&lck_fd) < 0 || mopen < 0)
         i = -2;
     }
 
-    // Try to acquire create and lock the lockfile.
-    if (i == 1) {
-      if (clck(&lck_fd) < 0)
-        i = -2;
+    // Tell main program that daemon is up and operational.
+    if (i == 1)
+      kill(pid, SIGPIPE);
+
+    /* When main has requested a configuration update,
+     * read up config file and process its contents.
+     */
+    if (cfg == 1) {
+      process_cfg(&cf, cfg_fd);
+      prt_opt(&cf);
+
+      cfg = 0;
     }
 
-    // Read up config file and process its contents.
-    if (i == 3) {
+    /* When daemon has been left on a loop for too long
+     * shut it down and kill main, if it's still alive.
+     */
+    if (i == 7) {
       i = -2;
-      //process_cfg(&cf, cfg_fd);
-      //prt_opt(&cf);
+      kill(pid, SIGINT);
     }
 
     printf("Sleeping for a while...\n");
@@ -288,6 +331,7 @@ int main(void)
     i++;
   }
 
+  // If config file was memorymapped earlier unmap it.
   if (mopen == 0) {
     if (fumap(&cfg_fd, &ptr, &mmapsize) < 0)
       printf("Problem unmapping config file, see error log.\n");
