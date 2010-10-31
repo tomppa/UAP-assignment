@@ -41,7 +41,7 @@ int csd()
 }
 
 // Open up the pipe required for communicating with other processes.
-int opipe(int fd)
+int opipe(int *fd)
 {
   if (mkfifo(_DMN_FIFO_, 0600) == -1) {
     if (errno == EEXIST)
@@ -56,10 +56,11 @@ int opipe(int fd)
   if (errno != EEXIST)
     printf("FIFO created.\n");
 
-  if ((fd = open(_DMN_FIFO_, O_RDWR)) == -1) {
+  if ((*fd = open(_DMN_FIFO_, O_RDWR)) == -1) {
     perror("Failed to open FIFO");
     return -1;
   }
+
 
   printf("FIFO opened.\n");
 
@@ -67,9 +68,9 @@ int opipe(int fd)
 }
 
 // Close down the pipe used to communicate with the rest of the world.
-int cpipe(int fd)
+int cpipe(int *fd)
 {
-  if (close(fd) == -1) {
+  if (close(*fd) == -1) {
     perror("Failed to close down FIFO");
     return -1;
   }
@@ -156,27 +157,21 @@ int daemonize()
 }
 
 // Open the file lock to show this process has terminated.
-int olck(int fd)
+int olck(int *fd)
 {
   struct flock fl;
 
   memset(&fl, 0, sizeof(fl));
 
-  if (fcntl(fd, F_GETLK, &fl) < 0) {
+  if (fcntl(*fd, F_GETLK, &fl) < 0) {
     perror("Problem probing lockfile for locks");
     return -1;
   }
 
-  if (fl.l_type == F_UNLCK)
-    printf("No lock encountered, so no need to try unlocking the file.\n");
-
-  else {
+  if (fl.l_type == F_UNLCK) {
     fl.l_type = F_UNLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = _LCK_ST_;
-    fl.l_len = _LCK_LEN_;
 
-    if (fcntl(fd, F_SETLK, &fl) < 0) {
+    if (fcntl(*fd, F_SETLK, &fl) < 0) {
       perror("Problem unlocking lockfile");
       return -1;
     }
@@ -184,18 +179,21 @@ int olck(int fd)
     printf("Lockfile unlocked.\n");
   }
 
-  close(fd);
+  else
+    printf("Lock encountered by pid %d, so cannot unlock the file.\n", fl.l_pid);
+
+  close(*fd);
   printf("Lockfile descriptor closed.\n");
 
   return 0;
 }
 
 // Close the file (lock it down) indicating this daemon is operational.
-int clck(int fd)
+int clck(int *fd)
 {
-  fd = open(_LCK_FILE_, O_WRONLY|O_CREAT|O_TRUNC);
+  *fd = open(_LCK_FILE_, O_WRONLY|O_CREAT|O_TRUNC, 0600);
 
-  if (fd < 0) {
+  if (*fd < 0) {
     perror("Problem opening lockfile");
     return -1;
   }
@@ -207,13 +205,10 @@ int clck(int fd)
   memset(&fl, 0, sizeof(fl)); // initialize fl
 
   fl.l_type = F_WRLCK;
-  fl.l_whence = SEEK_SET;
-  fl.l_start = _LCK_ST_;
-  fl.l_len = _LCK_LEN_;
 
   /*TODO: This for some reason always returns ENOLCK on school computers.
           NFS issue perhaps? */
-  if (fcntl(fd, F_SETLKW, &fl) < 0) {
+  if (fcntl(*fd, F_SETLKW, &fl) < 0) {
     perror("Problem locking lockfile");
     return -1;
   }
@@ -254,9 +249,9 @@ int main(void)
 
   int i = 0, mopen, cfg_fd = 0, lck_fd = 0, fifo_fd = 0;
   char *ptr = NULL;
-  size_t mmapsize = 0;
+  size_t mmapsize = (size_t) 0;
 
-  while (!csd())
+  while (csd() == 0)
   {
     /* TODO:
      * Process command, write to pipe and go back to sleep.
@@ -264,14 +259,14 @@ int main(void)
 
     // On first rotation, map config file to memory and open pipe.
     if (i == 0) {
-      mopen = fmap(cfg_fd, ptr, mmapsize);
-      if (opipe(fifo_fd) < 0)
+      mopen = fmap(&cfg_fd, &ptr, &mmapsize);
+      if (opipe(&fifo_fd) < 0)
         i = -2;
     }
 
     // Try to acquire create and lock the lockfile.
     if (i == 1) {
-      if (clck(lck_fd) < 0)
+      if (clck(&lck_fd) < 0)
         i = -2;
     }
 
@@ -282,26 +277,26 @@ int main(void)
       //prt_opt(&cf);
     }
 
-    // Terminate program, only come here if something went wrong.
-    if (i == -2)
-      kill(getpid(), SIGINT);
-
     printf("Sleeping for a while...\n");
     sleep(_SLEEP_LEN_);
     printf("... woke up!\n");
 
+    // Terminate program, only come here if something went wrong.
+    if (i == -2)
+      kill(getpid(), SIGINT);
+
     i++;
   }
-  
-  if (mopen) {
-    if (fumap(cfg_fd, ptr, mmapsize))
+
+  if (mopen == 0) {
+    if (fumap(&cfg_fd, &ptr, &mmapsize) < 0)
       printf("Problem unmapping config file, see error log.\n");
   }
 
-  if (cpipe(fifo_fd) < 0)
+  if (cpipe(&fifo_fd) < 0)
     printf("Problem closing pipe, see error log.\n");
 
-  if (olck(lck_fd) < 0)
+  if (olck(&lck_fd) < 0)
     printf("Problem opening lock, see error log.\n");
 
   printf("Program terminating.\n");

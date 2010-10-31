@@ -133,14 +133,15 @@ void tmpcat(char *tmp, char *opt)
 }
 
 // Open up config file and map it to memory.
-int fmap(int fd, char *ptr, size_t mmapsize)
+int fmap(int *fd, char **ptr, size_t *mmapsize)
 {
-  size_t pagesize;
   struct stat st;
 
-  fd = open(_CFG_FILE_, O_RDONLY); 
+  *fd = open(_CFG_FILE_, O_RDONLY); 
 
-  if (fd < 0) {
+  printf("Config file opened.\n");
+
+  if (*fd < 0) {
     perror("Opening config file");
     return -1;
   }
@@ -148,16 +149,13 @@ int fmap(int fd, char *ptr, size_t mmapsize)
   stat(_CFG_FILE_, &st);
   crdtm(&st);
 
-  mmapsize = st.st_size;
-  ptr = mmap(NULL, mmapsize, PROT_READ, MAP_PRIVATE, fd, 0);
+  *mmapsize = st.st_size;
+  *ptr = mmap(NULL, *mmapsize, PROT_READ, MAP_PRIVATE, *fd, 0);
 
   if (ptr == MAP_FAILED) {
     perror("Memory mapping config file");
     return -1;
   }
-
-  pagesize = sysconf(_SC_PAGESIZE);
-  printf("System pagesize is: %ld\n", (long) pagesize);
 
   printf("Config file (%s) mapped to memory successfully.\n", _CFG_FILE_);
 
@@ -165,19 +163,19 @@ int fmap(int fd, char *ptr, size_t mmapsize)
 }
 
 // Closing and unmapping the config file from memory.
-int fumap(int fd, char *ptr, size_t mmapsize)
+int fumap(int *fd, char **ptr, size_t *mmapsize)
 {
-  if (close(fd) < 0) {
-    perror("Closing config file");
-    return -1;
-  }
-
-  if (munmap(ptr, mmapsize) < 0) {
+  if (munmap(*ptr, *mmapsize) < 0) {
     perror("Unmapping config file from memory");
     return -1;
   }
 
-  printf("Successfully unmapped config file from memory");
+  if (close(*fd) < 0) {
+    perror("Closing config file");
+    return -1;
+  }
+
+  printf("Successfully unmapped config file from memory.\n");
   return 0;
 }
 

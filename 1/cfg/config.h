@@ -31,8 +31,8 @@ struct cfg
 extern struct cfg cf;
 extern int process_cfg(struct cfg*, int);
 extern void tmpcat(char*, char*);
-extern int fmap(int, char*, size_t);
-extern int fumap(int, char*, size_t);
+extern int fmap(int*, char**, size_t*);
+extern int fumap(int*, char**, size_t*);
 extern int crdtm(struct stat*);
 extern void prt_opt(struct cfg*);
 

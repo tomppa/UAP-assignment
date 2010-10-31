@@ -7,9 +7,11 @@ SUFFIXES = .c .o
 SOURCES = $(wildcard *.c)
 OBJECTS = $(SOURCES:.c=.o)
 DIFFS = $(wildcard *.diff)
+FIFOS = $(wildcard *.fifo)
 LIBS = $(wildcard *.a)
+LOCKS = $(wildcard *.lck)
 
-.PHONY: all cleanall cleandiff cleanlib cleanobj
+.PHONY: all cleanall cleandiff cleanfifo cleanlib cleanlock cleanobj
 
 all: $(PROJECT)
 
@@ -19,14 +21,20 @@ all: $(PROJECT)
 $(PROJECT): $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
 
-cleanall: cleandiff cleanlib cleanobj
+cleanall: cleandiff cleanfifo cleanlib cleanlock cleanobj
 	rm -f $(PROGS)
 
 cleandiff:
 	rm -f $(DIFFS)
 
+cleanfifo:
+	rm -f $(FIFOS)
+
 cleanlib:
 	rm -f $(LIBS)
+
+cleanlock:
+	rm -f $(LOCKS)
 
 cleanobj:
 	rm -f $(OBJECTS)
