@@ -15,6 +15,7 @@
 
 #include "daemon.h"
 #include "config.h"
+#include "../lib/fops.h"
 
 int alive = 1, cfg = 0, rd = 0, mn = 0;
 struct cfg cf;
@@ -44,7 +45,8 @@ static void sig_hdlr(int signo)
       break;
 
     default:
-      fprintf(stderr, "Received a signal (%d) that wasn't handled properly!\n", signo);
+      fprintf(stderr, "Received a signal (%d) that wasn't handled properly!\n",
+              signo);
   }
 }
 
@@ -55,46 +57,6 @@ int csd()
     printf("Shutdown flag is set.\n");
     return -1;
   }
-
-  return 0;
-}
-
-// Open up the pipe required for communicating with other processes.
-int opipe(int *fd)
-{
-  if (mkfifo(_DMN_FIFO_, 0600) == -1) {
-    if (errno == EEXIST)
-      printf("Warning: FIFO already exists, it could be in use.\n");
-
-    else {
-      perror("Failed to create FIFO");
-      return -1;
-    }
-  }
-  
-  if (errno != EEXIST)
-    printf("FIFO created.\n");
-
-  if ((*fd = open(_DMN_FIFO_, O_RDWR|O_NONBLOCK)) == -1) {
-    perror("Failed to open FIFO");
-    return -1;
-  }
-
-
-  printf("FIFO opened.\n");
-
-  return 0;
-}
-
-// Close down the pipe used to communicate with the rest of the world.
-int cpipe(int *fd)
-{
-  if (close(*fd) == -1) {
-    perror("Failed to close down FIFO");
-    return -1;
-  }
-
-  printf("FIFO closed.\n");
 
   return 0;
 }
@@ -175,64 +137,97 @@ int daemonize()
   return 0;
 }
 
-// Open the file lock to show this process has terminated.
-int olck(int *fd)
+int hdl_data (int fd, struct cfg cf, int pid)
 {
-  struct flock fl;
+  int i = 0, retry = 0;
+  char buf[_BUF_SIZE_];
 
-  memset(&fl, 0, sizeof(fl));
+  while (i <= cf.opt_amt)
+  {
+    switch (i)
+    {
+      case 1: if (cf.print)
+                strcpy(buf, "print");
+              break;
 
-  if (fcntl(*fd, F_GETLK, &fl) < 0) {
-    perror("Problem probing lockfile for locks");
-    return -1;
-  }
+      case 2: if (cf.greet)
+                strcpy(buf, "greet");
+              break;
 
-  if (fl.l_type == F_UNLCK) {
-    fl.l_type = F_UNLCK;
+      case 3: if (cf.log_access)
+                strcpy(buf, "log_access");
+              break;
 
-    if (fcntl(*fd, F_SETLK, &fl) < 0) {
-      perror("Problem unlocking lockfile");
+      case 4: if (cf.cls)
+                strcpy(buf, "cls");
+              break;
+
+      case 5: if (cf.cla)
+                strcpy(buf, "cla");
+              break;
+
+      case 6: if (cf.os_dtls)
+                break;
+
+      default: break;
+    }
+
+    if (alive == 0) {
       return -1;
     }
 
-    printf("Lockfile unlocked.\n");
+    if (buf[0] != '\0') {
+
+      printf("Sending a command (%s) to main.\n", buf);
+  
+      // First write option to pipe.
+      if (write(fd, buf, strlen(buf)) < strlen(buf)) {
+        perror("Write buffer filled up before finishing write");
+        // TODO: Free up buffer space.
+      }
+
+      // Signal main that there's data waiting to be read on the pipe.
+      kill(pid, SIGUSR1);
+
+      // Then wait for main to read it and send signal back.
+      while (rd == 0)
+        sleep(_SLEEP_LEN_);
+
+      // Reset the flag.
+      rd = 0;
+      
+      // Read reply from pipe and tell main pipe is free again.
+      if (read(fd, buf, _BUF_SIZE_) == 0) {
+        perror("Read buffer was empty");
+        // TODO: Signal main to resend.
+      }
+
+      kill(pid, SIGUSR2);
+    
+      // If reply was a success, move on, else try again.
+      if (strcmp(buf, "success")) {
+        printf("Command delivered and performed!\n");
+        i++;
+      }
+
+      else {
+        if (retry == 1) {
+          fprintf(stderr, "Delivery failure!\n");
+          return -1;
+        }
+
+        else {
+          retry = 1;
+          if (strcmp(buf, "failure")) 
+            printf("Delivery had some problems!\n");
+          else
+            printf("Received non-standard reply.\n");
+        }
+      }
+
+      bzero(buf, _BUF_SIZE_);
+    }
   }
-
-  else
-    printf("Lock encountered by pid %d, so cannot unlock the file.\n", fl.l_pid);
-
-  close(*fd);
-  printf("Lockfile descriptor closed.\n");
-
-  return 0;
-}
-
-// Close the file (lock it down) indicating this daemon is operational.
-int clck(int *fd)
-{
-  *fd = open(_LCK_FILE_, O_WRONLY|O_CREAT|O_TRUNC, 0600);
-
-  if (*fd < 0) {
-    perror("Problem opening lockfile");
-    return -1;
-  }
-
-  printf("Lockfile opened/created.\n");
-
-  struct flock fl;
-
-  memset(&fl, 0, sizeof(fl)); // initialize fl
-
-  fl.l_type = F_WRLCK;
-
-  /*TODO: This for some reason always returns ENOLCK on school computers.
-          NFS issue perhaps? */
-  if (fcntl(*fd, F_SETLKW, &fl) < 0) {
-    perror("Problem locking lockfile");
-    return -1;
-  }
-
-  printf("Lock on lockfile acquired.\n");
 
   return 0;
 }
@@ -241,23 +236,7 @@ int main(int argc, char *argv[])
 {
   struct sigaction sig;
   int pid = 0;
-/*
-  TODO: move to a common library, where all modules can use it.
 
-  struct stat st;
-
-  if (stat("./../logs/", &st) != 0) {
-    fprintf(stdout, "<%d> Directory 'logs' not found, creating it ...",
-            getpid());
-    if (mkdir("./../logs", S_IRWXU | S_IRGRP | S_IROTH) < 0) {
-      perror("Directory creation failed");
-      return EXIT_FAILURE;
-    }
-
-    else
-      fprintf(stdout, " creation successfull.\n");
-  }
-*/
   if (argc == 2) {
     pid = atoi(argv[1]);
     printf("Process ID of calling process is %d.\n", pid);
@@ -285,17 +264,23 @@ int main(int argc, char *argv[])
 
   while (csd() == 0)
   {
-    /* TODO:
-     * Process command, write to pipe and go back to sleep.
-     */
-
     /* On first rotation, map config file to memory and open pipe.
      * Also open up lockfile and put a lock on it to show daemon is alive.
      */
     if (i == 0) {
+      int lock = clck(&lck_fd, _LCK_FILE_);
+
       mopen = fmap(&cfg_fd, &ptr, &mmapsize);
-      if (opipe(&fifo_fd) < 0 || clck(&lck_fd) < 0 || mopen < 0)
+      if (opipe(&fifo_fd, _DMN_FIFO_) < 0 ||
+          lock == -1 || mopen < 0)
         i = -2;
+
+      else if (lock == -2) {
+        printf("Let's write PID to lockfile instead.\n");
+
+        if (wr_pid(lck_fd, getpid()) < 0)
+          i = -2;
+      }
     }
 
     // Tell main program that daemon is up and operational.
@@ -308,6 +293,8 @@ int main(int argc, char *argv[])
     if (cfg == 1) {
       process_cfg(&cf, cfg_fd);
       prt_opt(&cf);
+
+      hdl_data(cfg_fd, cf, pid);
 
       cfg = 0;
     }

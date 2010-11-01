@@ -6,6 +6,7 @@
 #define _DMN_OUT_ "daemon.out"
 #define _DMN_ERR_ "daemon.err"
 #define _DMN_FIFO_ "../daemon.fifo"
+#define _BUF_SIZE_ 81
 #endif
 
 #ifndef _PID_SZ_

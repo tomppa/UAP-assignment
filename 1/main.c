@@ -2,12 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "main.h"
+#include "lib/fops.h"
+#include "lib/pops.h"
 
 // Some flags to help with various loops and signals.
 int alive = 1, dmn = 0, rd = 0;
@@ -40,48 +43,9 @@ static void sig_hdlr(int signo)
   }
 }
 
-int chk4lck(int *fd, char *name, int *pid)
-{
-  struct flock fl;
-  int success = 0;
-  
-  *fd = open(name, O_RDONLY);
-
-  printf("Lockfile (%s) opened.\n", name);
-
-  if (*fd < 0) {
-    perror("Problem opening lockfile");
-    return -1;
-  }
-
-  memset(&fl, 0, sizeof(fl));
-
-  if (fcntl(*fd, F_GETLK, &fl) < 0) {
-    perror("Problem probing lockfile for locks");
-    return -1;
-  }
-
-  if (fl.l_type == F_UNLCK) {
-    printf("No lock found.\n");
-    success = 0;
-  }
-
-  else {
-    printf("File locked by process with pid: %d.\n", fl.l_pid);
-    *pid = fl.l_pid;
-    success = 1;
-  }
-
-  close(*fd);
-
-  printf("Closed lockfile.\n");
-
-  return success;
-}
-
 int main (void)
 {
-  int i, chd_fail = 0, fd = 0, pid = getpid();
+  int i, chd_fail = 0, pid = getpid();
 
   printf("Starting up the daemon.\n");
 
@@ -153,7 +117,7 @@ int main (void)
 
   printf("Daemon is finished starting up, so can proceed now.\n");
 
-  int lck = chk4lck(&fd, "./cfg/daemon.lck", &pid);
+  int lck = chk4lck(_DMN_LCK_FILE_, &pid);
 
   if (lck == 0) {
     printf("File isn't locked, so cannot get pid this way.\n");
@@ -161,8 +125,27 @@ int main (void)
     return EXIT_FAILURE;
   }
 
-  else if (lck < 0) {
+  else if (lck == -1) {
     printf("Cannot even query file for locks, so terminating.\n");
+    return EXIT_FAILURE;
+  }
+
+  else if (lck == -2) {
+    printf("Let's read the PID from the file instead.\n");
+
+    if (chk4pid(_DMN_LCK_FILE_, &pid) < 0) {
+      printf("Reading failed too, so cannot get PID and terminating.\n");
+      return EXIT_FAILURE;
+    }
+    
+    printf("Pid %d found!", pid);
+  }
+
+  int fifo_fd = 0;
+
+  // Try opening the pipe, if that fails, kill daemon and exit.
+  if (opipe(&fifo_fd, _MN_FIFO_) < 0) {
+    kill(pid, SIGINT);
     return EXIT_FAILURE;
   }
 
@@ -171,6 +154,31 @@ int main (void)
 
   while (alive == 1)
   {
+    if (rd == 1) {
+      char *buf;
+
+      bzero(buf, _MN_BUF_SIZE_);
+      rd = 0;
+      if (read(fifo_fd, buf, _MN_BUF_SIZE_) == 0) {
+        //TODO: nothing to read, request new submission.
+      }
+
+      else {
+        kill(pid, SIGUSR2);
+
+        printf("Read command '%s' from pipe.\n", buf);
+        if (pcom(&buf, _MN_BUF_SIZE_) < 0)
+          fprintf(stderr, "Unrecognized command given.\n");
+        else
+          printf("Command successfull.\n");
+
+        if (write(fifo_fd, buf, _MN_BUF_SIZE_) < 0) {
+          // TODO: Buffer is full, need to empty it.
+        }
+
+        kill(pid, SIGUSR1);
+      }
+    }
 
     sleep(_MN_SLP_LEN_);
   }
