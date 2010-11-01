@@ -139,35 +139,33 @@ int daemonize()
 
 int hdl_data (int fd, struct cfg cf, int pid)
 {
-  int i = 0, retry = 0;
-  char buf[_BUF_SIZE_];
+  int i = 1, retry = 0;
+  char *buf;
+
+  buf = (char *) malloc (_BUF_SIZE_ * sizeof(char));
+  bzero(buf, _BUF_SIZE_);
 
   while (i <= cf.opt_amt)
   {
+    printf("Round #%d/%d.\n", i, cf.opt_amt);
+
     switch (i)
     {
-      case 1: if (cf.print)
-                strcpy(buf, "print");
-              break;
-
-      case 2: if (cf.greet)
+      case 1: if (cf.greet)
                 strcpy(buf, "greet");
               break;
 
-      case 3: if (cf.log_access)
+      case 2: if (cf.log_access)
                 strcpy(buf, "log_access");
               break;
 
-      case 4: if (cf.cls)
+      case 3: if (cf.cls)
                 strcpy(buf, "cls");
               break;
 
-      case 5: if (cf.cla)
+      case 4: if (cf.cla)
                 strcpy(buf, "cla");
               break;
-
-      case 6: if (cf.os_dtls)
-                break;
 
       default: break;
     }
@@ -202,10 +200,12 @@ int hdl_data (int fd, struct cfg cf, int pid)
         // TODO: Signal main to resend.
       }
 
+      printf("Read reply '%s' from pipe, sending ok signal to main.\n", buf);
+
       kill(pid, SIGUSR2);
     
       // If reply was a success, move on, else try again.
-      if (strcmp(buf, "success")) {
+      if (strcmp(buf, "success") == 0) {
         printf("Command delivered and performed!\n");
         i++;
       }
@@ -213,6 +213,7 @@ int hdl_data (int fd, struct cfg cf, int pid)
       else {
         if (retry == 1) {
           fprintf(stderr, "Delivery failure!\n");
+          free(buf);
           return -1;
         }
 
@@ -227,8 +228,12 @@ int hdl_data (int fd, struct cfg cf, int pid)
 
       bzero(buf, _BUF_SIZE_);
     }
+
+    else
+      i++;
   }
 
+  free(buf);
   return 0;
 }
 
@@ -292,9 +297,11 @@ int main(int argc, char *argv[])
      */
     if (cfg == 1) {
       process_cfg(&cf, cfg_fd);
-      prt_opt(&cf);
+      prt_opt(cf);
 
-      hdl_data(cfg_fd, cf, pid);
+      printf("Starting to send data back to main.\n");
+
+      hdl_data(fifo_fd, cf, pid);
 
       cfg = 0;
     }

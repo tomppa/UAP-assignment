@@ -64,9 +64,6 @@ int process_cfg (struct cfg *cf, int fd)
       if (strcmp(opt, "greet") == 0)
         cf->greet = val;
 
-      else if (strcmp(opt, "print") == 0)
-        cf->print = val;
-
       else if (strcmp(opt, "log_access") == 0)
         cf->log_access = val;
 
@@ -75,9 +72,6 @@ int process_cfg (struct cfg *cf, int fd)
 
       else if (strcmp(opt, "cls") == 0)
         cf->cls = val;
-
-      else if (strcmp(opt, "os_dtls") == 0)
-        cf->os_dtls = val;
 
       // Save names of unrecognized options for reporting them later.
       else
@@ -210,14 +204,12 @@ int crdtm(struct stat *st)
 }
 
 // For debugging or gawking at values, when too lazy to view config file itself.
-void prt_opt(struct cfg *cf)
+void prt_opt(struct cfg cf)
 {
   printf("Printing options...\n");
-  printf("Print options? %s\n", cf->print ? "True." : "False.");
-  printf("Show greeting? %s\n", cf->greet ? "True." : "False.");
-  printf("Log access? %s\n", cf->log_access ? "True." : "False.");
+  printf("Show greeting? %s\n", cf.greet ? "True." : "False.");
+  printf("Log access? %s\n", cf.log_access ? "True." : "False.");
   printf("Check of last access from current user? %s\n",
-         cf->cla ? "True." : "False.");
-  printf("Check log sizes? %s\n", cf->cls ? "True." : "False.");
-  printf("Get OS details? %s\n", cf->os_dtls ? "True." : "False.");
+         cf.cla ? "True." : "False.");
+  printf("Check log sizes? %s\n", cf.cls ? "True." : "False.");
 }

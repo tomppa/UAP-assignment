@@ -167,14 +167,25 @@ int main (void)
         kill(pid, SIGUSR2);
 
         printf("Read command '%s' from pipe.\n", buf);
-        if (pcom(&buf, _MN_BUF_SIZE_) < 0)
+
+        int ret = pcom(&buf, _MN_BUF_SIZE_);
+
+        if (ret == -2)
           fprintf(stderr, "Unrecognized command given.\n");
+        else if (ret == -1)
+          printf("Command failed.\n");
         else
           printf("Command successfull.\n");
 
+        printf("Writing reply '%s' back to pipe.\n", buf);
+
         if (write(fifo_fd, buf, _MN_BUF_SIZE_) < 0) {
           // TODO: Buffer is full, need to empty it.
+          fprintf(stderr, "Write buffer full!\n");
         }
+
+        else
+          printf("Reply written.\n");
 
         kill(pid, SIGUSR1);
       }
@@ -185,11 +196,13 @@ int main (void)
 
   kill(pid, SIGINT);
 
+  if (cpipe(&fifo_fd) < 0) {
+    fprintf(stderr, "Problem closing the pipe.\n");
+    return EXIT_FAILURE;
+  }
+
   printf("Program terminating.\n");
 
   return EXIT_SUCCESS;
-  /* TODO:
-   * Unblocking FIFO writes/reads with daemon.
-   */
 }
 

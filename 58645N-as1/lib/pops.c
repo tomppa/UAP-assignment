@@ -35,7 +35,7 @@ int pcom(char **cmd, int size)
 
   if (cret == -2) {
     fprintf(stderr, "Unrecognized command '%s'.\n", *cmd);
-    return -1;
+    return -2;
   }
 
   bzero(*cmd, size);

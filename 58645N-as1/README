@@ -1,0 +1,20 @@
+Basically it's just a generic frame for a (real) program. What it does is
+starting up a daemon process that is set to read the config file whenever
+main program so wants and then once daemon is up, communicates with it
+through FIFOs. Main asks daemon to read config and then send the commands
+that are enabled in config file back, so it can process them. At some point
+daemon gets tired of sleeping around and kills itself & tells main to
+terminate as well. If user is bored, he can also kill whole stuff with
+CTRL + C.
+
+cfg/config.txt contains the (fairly limited) options available for it, but
+the main work was in creating the pipes, lockfiles, forks, execs, mmaps,
+signals and nonblocking I/O. The actual things after that are simple stuff
+taken from the lecture material and played a bit with.
+
+Daemon keeps its own logs at cfg/dmn, where it moves itself to, that are
+streamed. The access log kept by the program itself is in logs directory
+and the main program just spits out things straight to stdout/stderr. It's
+particularly pretty, but works and as you can tell from the late date of
+returning the assignment, was a bit pushed with the schedule...
+

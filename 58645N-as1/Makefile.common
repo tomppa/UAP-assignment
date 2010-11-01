@@ -2,32 +2,28 @@ AR =		ar
 ARFLAGS =	-r
 CC =		gcc
 CFLAGS = 	-O0 -g -Wall -pedantic -pg -std=c99
-#LDFLAGS =	-lpthread
+LDFLAGS =	-Llib -L../lib -lpthread -lstuff
 CFLAGS +=	-D_GNU_SOURCE
 
 SUFFIXES = .c .o
 SOURCES = $(wildcard *.c)
 OBJECTS = $(SOURCES:.c=.o)
-DIFFS = $(wildcard *.diff)
 FIFOS = $(wildcard *.fifo)
 LIBS = $(wildcard *.a)
 LOCKS = $(wildcard *.lck)
 
-.PHONY: all cleanall cleandiff cleanfifo cleanlib cleanlock cleanobj
+.PHONY: all cleanall cleanfifo cleanlib cleanlock cleanobj
 
 all: $(PROJECT)
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-$(PROJECT): $(OBJECTS)
+$(PROJECT): $(OBJECTS) $(MODULES)
 	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
 
-cleanall: cleandiff cleanfifo cleanlib cleanlock cleanobj
+cleanall: cleanfifo cleanlib cleanlock cleanobj cleanswap
 	rm -f $(PROGS)
-
-cleandiff:
-	rm -f $(DIFFS)
 
 cleanfifo:
 	rm -f $(FIFOS)
@@ -40,4 +36,7 @@ cleanlock:
 
 cleanobj:
 	rm -f $(OBJECTS)
+
+cleanswap:
+	rm -f $(SWAPS)
 

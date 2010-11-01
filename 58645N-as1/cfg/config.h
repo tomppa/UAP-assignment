@@ -34,7 +34,7 @@ extern void tmpcat(char*, char*);
 extern int fmap(int*, char**, size_t*);
 extern int fumap(int*, char**, size_t*);
 extern int crdtm(struct stat*);
-extern void prt_opt(struct cfg*);
+extern void prt_opt(struct cfg);
 
 #endif /* _CFG_HEADER_ */
 

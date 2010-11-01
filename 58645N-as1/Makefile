@@ -1,12 +1,11 @@
 # Main makefile.
 
 PROJECT = main
-LDFLAGS = -lpthread -Llib/ -lstuff
 MODULES = LIB CONFIG
 
 include ~/code/c/uap/assignments/1/Makefile.common
 
-all: $(MODULES) $(PROJECT)
+all: $(PROJECT)
 
 main.o: main.c main.h
 
@@ -16,7 +15,7 @@ LIB:
 CONFIG:
 	cd ./cfg/ ; make
 
-cleanall: cleandiff cleanfifo cleanlib cleanlock cleanobj cleancfg cleanstuff
+cleanall: cleanfifo cleanlib cleanlock cleanobj cleancfg cleanstuff
 
 cleancfg:
 	cd ./cfg/ ; make cleanall

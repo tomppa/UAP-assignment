@@ -1,0 +1,76 @@
+* First few weeks *
+
+Simply just playing around with all the things in the lecture material and
+getting reacquintanced with pointer logics after a small break in C and
+having written lots of Java code lately. The "main" functionality of the
+program was created, i.e., the access log and checking what's in it,
+plus creating the configuration file.
+
+* Week 41 *
+
+Started working on the forking and running two processes parallelly. Some
+very simple designs with blocking I/O, where one doesn't have to worry much
+about what happens, when child waits while parent does something and vice
+versa. All this went relatively easily.
+
+* Week 42 *
+
+Had to actually connect the the two above pieces of programs. This turned out
+to be quite the hassle, since I had been a little careless and used
+function calls by value, which lead to some functions of the standard library
+to break up with SIGSEGV and that seemed a little incredible, as they surely
+have had more than enough testing among the years to ensure bugs have been
+worked out. Well, turned out that adding a few &'s can make a lot of difference
+since now different variables were actually getting updated with the new info
+and not just left with the values they got initialized with (which obviously
+didn't work very well as seen earlier).
+
+Once that was finished with, turned my attention towards some of the other
+requisites in the assignment. File locking proved out to be rather tedious as
+well, since for some reason the computers at Otaniemi kept constantly giving
+ENOLCK from all fcntl calls. And google wasn't being that big of a help about
+the matter either, but at last there were some hints towards NFS possibly
+having something to do with. Then one day I had some spare time to test the
+program home (thus the .gitignore files around) and it worked without any
+issues.
+
+This eventually required building a little trickstery into the program, when
+locking fails to ENOLCK, just write the pid on the lockfile and make do with
+that. Not nearly as elegant a way to do it, but it works.
+
+* Week 43 *
+
+Since things were progressing somewhat nicely at this point, had a little
+lapse of judgement and let myself be blinded by enthusiasm rather than
+realism. Thus figured that surely it can't be that hard to fit all four
+optional issue into the program. And well, the timing shows just how great
+went.
+
+But not to get ahead of myself, daemon programs looked rather cool and
+wanted to have one myself, so set out to write it down. The daemon itself
+proved out rather simple, but what it achieved was making debugging pretty much
+everything more complex and that ate quite a bit of time. In retrospect,
+probably should've had a more simpler test environment where to hammer new
+pieces into their place, before integrating them into the big picture.
+
+Next on the menu was proper signalling and for that, the current implementation
+is slightly rudimentary. "Raping" the default signal system and abusing
+SIGPIPE surely isn't a very elegant way to go, when RTS signals would've
+offered a lot more user definable options fairly easily.
+
+Memory mapping was mostly just scratched on the surface. The configuration
+file is opened up with mmap and closed later with munmap, but nothing else
+really differs from normally reading it up. Given more time could've built a
+system that checks the disk, like make, whether the config file has been
+changed and then remaps it, if need be. The daemon after all could be
+designed to be left running for much longer than just a minute or two.
+
+In the very end of the program a segmentation fault is ran into, but since
+everything that needs to be done gets done, it's not a huge issue. Debugging
+that became a bit tedious, thanks to strace not giving any spectacular hints
+about it and gdb breaking up whenever main program receives any signal.
+
+Plenty of things that could be done still. Excluding the aforementioned
+issues, at least the asynchronous I/O is still in baby shoes and cannot
+for instance handle a third process coming around to confuse things.
+

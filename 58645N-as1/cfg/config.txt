@@ -2,23 +2,17 @@
 # Note that maximum line length is 80 characters, after which the rest will
 # be ignored. 1 = true, 0 = false.
 
-# printing the values of all options 
-print=0
-
 # greeting
-greet=a
+greet=1
 
 # logging to access log
 log_access=4
 
 # last access check for current user
-cla=1
+cla=a
 
 # checking how large the log files in total are
 cls=1
-
-# printing out details about the OS
-os_dtls=0
 
 # Let's try something that isn't defined yet.
 hello=3
