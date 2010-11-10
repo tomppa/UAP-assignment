@@ -14,10 +14,10 @@
 #include "main.h"
 
 // Uncomment this to enable DEBUG print to stdout.
-//#define _DEBUG_
+#define _DEBUG_
 #define _TST_FILE_ "test.tst"
 
-int alive = 1, fd = -1, fd_wr = -1;
+int alive = 1, thrd_amt = 0, fd_wr = -1;
 
 static void sig_hdlr(int signo)
 {
@@ -39,66 +39,74 @@ static void sig_hdlr(int signo)
   }
 }
 
-void *process_data(void *threadarg)
+void *process_data(void *arg)
 {
-  struct thread_data *my_data;
-  int taskid, test;
+  struct thread_info *my_data;
+  pthread_t taskid;
+  int thread_num;
   char *message;
 
-  my_data = (struct thread_data *) threadarg;
+  my_data = (struct thread_info *) arg;
   taskid = my_data->thread_id;
-  test = my_data->test;
+  thread_num = my_data->thread_num;
   message = my_data->message;
+  
+  int ai = my_data->ai;
 
-  printf("Thread #%d getting command '%s', with test %d.\n", taskid, message,
-         test);
+  printf("Thread #%d getting command '%s', with id %lu and ai %d.\n",
+         thread_num, my_data->message, (unsigned long) taskid, ai);
 
-  printf("Thread #%d exiting.\n", taskid);
+  sleep(5);
+  thrd_amt--;
+
+  printf("Thread #%d exiting.\n", thread_num);
 
   pthread_exit(NULL);
 }
 
-int handle_fds(fd_set tbr, struct arli list, pthread_t threads[])
+int handle_fd(int fd, struct thread_info *tinfo)
 {
-  int *fds = list.values, i;
   char *tmp;
 
   tmp = (char*) malloc(_BUF_SIZE_ * sizeof(char));
-  //bzero(&tmp, _BUF_SIZE_);
 
-  for (i = 0; i < list.size; i++) {
-    if (FD_ISSET(fds[i], &tbr)) {
-      // Reset errno, so you don't get old errors.
-      errno = 0;
-      int res = read(fds[i], tmp, _BUF_SIZE_);
+  printf("File descriptor is: %d.\n", fd);
 
-      if (res < 0) {
-        perror("Reading the data from FD");
-        return -1;
-      }
+  // Reset errno, so you don't get old errors.
+  errno = 0;
+  int res = read(fd, tmp, _BUF_SIZE_);
 
-      else {
-        int rc;
-        struct thread_data tda;
+  if (res < 0) {
+    perror("Reading the data from FD");
+    return -1;
+  }
 
-        tda.thread_id = i;
-        tda.test = (i + 1) * 3;
-        tda.message = tmp;
+  else {
+    int rc;
 
-        printf("** DEBUG ** Message for thread #%d is '%s' and test is %d.\n",
-               i, tda.message, tda.test);
-        rc = pthread_create(&threads[i], NULL, process_data, (void *) &tda);
+    thrd_amt++;
+    tinfo->thread_num = thrd_amt;
+    tinfo->message = tmp;
+    tinfo->ai = 5;
+
+    struct thread_info temp = *tinfo;
+
+    #ifdef _DEBUG_
+    printf("**DEBUG** Message for thread #%d is %s, ai is %d and id is %lu.\n",
+           tinfo->thread_num, tinfo->message, tinfo->ai,
+           (unsigned long) tinfo->thread_id);
+    #endif
+
+    rc = pthread_create(&tinfo->thread_id, NULL, process_data, (void *) &tinfo);
         
-        if (rc < 0) {
-          perror("Creating thread");
-          return -1;
-        }
-      }
+    if (rc < 0) {
+      perror("Creating thread");
+      thrd_amt--;
+      return -1;
     }
   }
 
   free(tmp);
-
   return 0;
 }
 
@@ -126,12 +134,13 @@ int otest(int *fd_tst)
 
 int ctest(int *fd_tst)
 {
-  if (close(fd) < 0) {
+  if (close(*fd_tst) < 0) {
     perror("Closing the testfile");
     return -1;
   }
 
   printf("Testfile closed.\n");
+  *fd_tst = -1;
   return 0;
 }
 
@@ -153,10 +162,11 @@ int main(void)
 {
   fd_set tbr; // FDs to be read after select stops blocking.
   struct arli list; // Arraylist of all FDs given to select.
+  struct thread_info *tinfo;
   struct timeval tv;
   struct sigaction sig;
-  pthread_t threads[_NUM_THREADS_];
-  int value, highfd, reset = 1;
+  pthread_attr_t attr;
+  int value, highfd, reset = 1, fd = -1;
 
   printf("Setting up signal handling.\n");
 
@@ -182,6 +192,11 @@ int main(void)
   create(&list);
   add(&list, fd);
   add(&list, fileno(stdin));
+
+  tinfo = calloc(_NUM_THREADS_, sizeof(struct thread_info));
+
+  if (pthread_attr_init(&attr) != 0)
+    perror("Attribute initialization for pthreads");
 
   tv.tv_sec = 0;
   tv.tv_usec = 0;
@@ -221,7 +236,20 @@ int main(void)
     else {
       printf("Things to do, yay!\n");
       reset = 0;
-      handle_fds(tbr, list, threads);
+      int i;
+      for (i = 0; i < list.size; i++) {
+        char *tst;
+
+        if (FD_ISSET(list.values[i], &tbr)) {
+          handle_fd(list.values[i], &tinfo[thrd_amt]);
+          tst = "true\0";
+        }
+        else
+          tst = "false\0";
+
+        printf("Bit #%d (file descriptor #%d) is set to %s.\n", i,
+               list.values[i], tst);
+      }
     }
   }
 
@@ -238,6 +266,7 @@ int main(void)
     printf("Fifo removed.\n");
 
   close(fd_wr);
+  free(tinfo);
   printf("Main thread terminating.\n");
 
   pthread_exit(NULL);

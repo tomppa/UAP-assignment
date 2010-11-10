@@ -10,13 +10,15 @@
 #define _NUM_THREADS_ 5
 #endif
 
-struct thread_data {
-  int thread_id;
-  int test;
+struct thread_info {
+  pthread_t thread_id;
+  int thread_num;
   char *message;
+  int ai;
 };
 
-extern int handle_fds(fd_set, struct arli, pthread_t threads[]);
+//extern int handle_fds(fd_set, struct arli, pthread_t threads[]);
+extern int handle_fd(int, struct thread_info*);
 extern void init_tbr(fd_set*, struct arli);
 extern void set_tv(struct timeval*);
 
